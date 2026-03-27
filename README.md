@@ -1,6 +1,10 @@
-# Logo Generator
+<p align="center">
+  <img src="logo.png" width="200" alt="Logo Generator">
+</p>
 
-AI-powered logo design tool that creates unique brand icons through interactive conversation or one-shot generation. Uses multiple image generation models via OpenRouter for diverse results.
+<h1 align="center">Logo Generator</h1>
+
+<p align="center">AI-powered logo design tool that creates unique brand icons through interactive conversation or one-shot generation. Uses multiple image generation models via OpenRouter for diverse results.</p>
 
 ## Screenshots
 
