@@ -27,7 +27,8 @@ class Settings(BaseSettings):
     image_size: str = "1024x1024"
 
     # Output
-    output_dir: str = "output"
+    output_dir: str = "output/generated"
+    cleaned_dir: str = "output/cleaned"
 
 
 settings = Settings()

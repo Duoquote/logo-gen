@@ -12,12 +12,23 @@ dependencies = [
     "httpx>=0.28.1",
     "onnxruntime>=1.24.4",
     "openai>=2.30.0",
+    "opencv-python>=4.13.0.92",
     "pillow>=12.1.1",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.13.1",
     "python-dotenv>=1.2.2",
     "rembg>=2.0.74",
+    "spandrel>=0.4.2",
+    "torch>=2.6.0",
 ]
+
+[[tool.uv.index]]
+url = "https://download.pytorch.org/whl/cu124"
+name = "pytorch-cuda"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cuda" }
 
 [project.scripts]
 logo-gen = "logo_gen.app:main"

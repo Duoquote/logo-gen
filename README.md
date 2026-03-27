@@ -28,6 +28,8 @@ Configure LLM and image generation models:
 - **Seed Variation** - Multiple seeds per model for even more diversity
 - **LLM Prompt Enhancement** - Claude Sonnet 4 transforms simple descriptions into detailed, optimized image generation prompts
 - **Icon-Only Designs** - Focused on unique symbols and abstract marks, no text/typography
+- **Upscaling** - 4 methods: Lanczos, Bicubic, Real-ESRGAN Anime (best for flat logos), Real-ESRGAN General (best for complex logos). Supports 2x, 4x, 8x scales with GPU acceleration
+- **Background Removal** - 5 rembg models (U2-Net, ISNet, BiRefNet, etc.) with alpha matting support. Reads from both generated and upscaled folders
 
 ## Quick Start
 
@@ -73,19 +75,69 @@ src/logo_gen/
   config.py              # Settings (pydantic-settings, reads .env)
   prompt_engine.py       # LLM prompt enhancement & chat session
   generator.py           # Multi-model generation orchestrator
-  app.py                 # Gradio web UI
+  upscaler.py            # Image upscaling (Lanczos, Bicubic, Real-ESRGAN)
+  postprocess.py         # Background removal (rembg)
+  app.py                 # Gradio web UI (5 tabs)
   clients/
     openrouter.py        # OpenRouter API client (LLM + image gen)
+```
+
+### Output Structure
+
+```
+output/
+  generated/   # AI-generated logos
+  upscaled/    # Upscaled versions
+  cleaned/     # Background-removed versions
 ```
 
 ## How It Works
 
 1. **Prompt Enhancement** - Your concept is sent to an LLM (Claude Sonnet 4) which generates 4-6 diverse, detailed image generation prompts, each exploring a different visual direction
 2. **Multi-Model Generation** - Each prompt is sent to multiple image models with different random seeds
-3. **Results** - All generated logos are displayed in a gallery for comparison
+3. **Upscaling** - Optionally upscale to 2x/4x/8x using AI (Real-ESRGAN) or classical (Lanczos/Bicubic) methods
+4. **Background Removal** - Remove backgrounds with your choice of 5 neural network models
+5. **Results** - All generated logos are displayed in galleries for comparison
 
 ## Requirements
 
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/) package manager
 - OpenRouter API key with credits
+
+## GPU / CPU Setup
+
+The project works on both **CPU and GPU**. GPU is only needed for AI upscaling (Real-ESRGAN); everything else runs on CPU.
+
+### CPU-only (default)
+
+```bash
+uv sync
+uv run logo-gen
+```
+
+This installs the CPU-only PyTorch build. AI upscaling methods (Real-ESRGAN) will fall back to Lanczos automatically. Lanczos and Bicubic upscaling work without GPU.
+
+### GPU (NVIDIA CUDA) - Recommended for upscaling
+
+The project is configured to install CUDA-enabled PyTorch from the `cu124` index. If `uv sync` installs the CPU version instead, force the CUDA build:
+
+```bash
+# Verify GPU is detected
+uv run python -c "import torch; print('CUDA:', torch.cuda.is_available())"
+
+# If False, reinstall torch with CUDA:
+uv pip install torch --index-url https://download.pytorch.org/whl/cu124 --force-reinstall
+```
+
+Real-ESRGAN models are downloaded automatically on first use (~17MB for anime, ~67MB for general) and cached in `~/.cache/logo-gen/models/`.
+
+### VRAM Requirements
+
+| Method | VRAM | Notes |
+|--------|------|-------|
+| Lanczos / Bicubic | 0 | CPU only |
+| Real-ESRGAN Anime 6B | ~1.5 GB | Best for flat/illustrative logos |
+| Real-ESRGAN General x4 | ~2.5 GB | Best for complex logos |
+
+Images larger than 512x512 are processed in tiles to avoid VRAM overflow.
