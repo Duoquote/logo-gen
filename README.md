@@ -6,6 +6,8 @@
 
 <p align="center">AI-powered logo design tool that creates unique brand icons through interactive conversation or one-shot generation. Uses multiple image generation models via OpenRouter for diverse results.</p>
 
+> **Warning:** This tool uses paid API credits via OpenRouter for both LLM prompt enhancement and image generation. Every chat message and every generated image costs credits. There is currently no free tier or local generation option. Make sure your OpenRouter account has sufficient credits before use.
+
 ## Screenshots
 
 ### Chat Designer
