@@ -27,6 +27,8 @@ Configure LLM and image generation models:
 - **LLM Prompt Enhancement** - Claude Sonnet 4 transforms simple descriptions into detailed, optimized image generation prompts
 - **Icon-Only Designs** - Focused on unique symbols and abstract marks, no text/typography
 
+> **Warning:** This tool uses paid API credits via OpenRouter for both LLM prompt enhancement and image generation. Every chat message and every generated image costs credits. There is currently no free tier or local generation option. Make sure your OpenRouter account has sufficient credits before use.
+
 ## Quick Start
 
 ```bash
