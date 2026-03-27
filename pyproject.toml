@@ -1,0 +1,25 @@
+[project]
+name = "logo-gen"
+version = "0.1.0"
+description = "AI-powered unique logo design generator"
+readme = "README.md"
+authors = [
+    { name = "Duoquote", email = "16341937+Duoquote@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "gradio>=6.10.0",
+    "httpx>=0.28.1",
+    "openai>=2.30.0",
+    "pillow>=12.1.1",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.13.1",
+    "python-dotenv>=1.2.2",
+]
+
+[project.scripts]
+logo-gen = "logo_gen.app:main"
+
+[build-system]
+requires = ["uv_build>=0.9.18,<0.10.0"]
+build-backend = "uv_build"
