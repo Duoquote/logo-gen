@@ -155,8 +155,9 @@ async def generate_image(
     content = message.get("content") or ""
 
     saved: list[Path] = []
+    import time as _time
     model_slug = model.replace("/", "_")
-    seed_str = f"_s{seed}" if seed is not None else ""
+    seed_str = f"_s{seed}" if seed is not None else f"_t{int(_time.time())}"
 
     # Method 1: Check message.images array (OpenRouter native format)
     images_array = message.get("images", [])
