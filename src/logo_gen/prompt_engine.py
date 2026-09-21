@@ -1,10 +1,25 @@
-"""Logo prompt enhancement engine using LLM via OpenRouter."""
+"""Logo prompt enhancement engine using LLM via OpenRouter or local Ollama."""
 
 from __future__ import annotations
 
+import base64
 import json
+from pathlib import Path
 
 from logo_gen.clients import openrouter
+from logo_gen.clients import local_llm
+from logo_gen.clients import claude_cli
+from logo_gen.config import settings
+
+
+def _use_local_llm() -> bool:
+    """Check if the configured LLM model is a local model."""
+    return settings.llm_model.startswith("local/")
+
+
+def _get_local_model() -> str:
+    """Extract the model name from the config (strip 'local/' prefix)."""
+    return settings.llm_model.removeprefix("local/")
 
 SYSTEM_PROMPT = """\
 You are an expert logo designer and AI image prompt engineer. Your job is to \
@@ -22,6 +37,16 @@ Your expertise includes:
 - Color theory: complementary, analogous, triadic schemes; color psychology
 - Composition: symmetry, golden ratio, negative space, geometric construction
 - Style knowledge: minimalist, geometric, abstract, gradient, flat, 3D, organic
+
+REFERENCE IMAGES:
+When the user attaches reference images, these SAME images will also be sent \
+directly to the image generation model alongside your prompts. Your prompts \
+should be written with this in mind:
+- Reference the visual elements, colors, shapes, or mood from the attached images
+- Write prompts that COMPLEMENT the reference images rather than fully re-describe them
+- You can say things like "inspired by the attached reference" or "building on the \
+  style shown" since the image model will see the same images
+- Still be specific about what you want changed, added, or adapted from the reference
 
 CONVERSATION APPROACH:
 1. Ask about the brand (name, industry, values, personality, audience)
@@ -70,33 +95,92 @@ Rules:
 Return ONLY the prompt text, nothing else."""
 
 
-async def enhance_prompt(concept: str) -> str:
+def _image_to_data_uri(image_path: str | Path) -> str:
+    """Convert an image file to a base64 data URI."""
+    p = Path(image_path)
+    suffix = p.suffix.lower().lstrip(".")
+    mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "webp": "webp", "gif": "gif"}
+    mime_type = f"image/{mime.get(suffix, 'png')}"
+    b64 = base64.b64encode(p.read_bytes()).decode()
+    return f"data:{mime_type};base64,{b64}"
+
+
+def _build_user_content(text: str, image_paths: list[str | Path] | None = None) -> str | list[dict]:
+    """Build a user message content field, optionally with images.
+
+    Returns a plain string if no images, or a multimodal content array
+    following the OpenAI vision format.
+    """
+    if not image_paths:
+        return text
+
+    content: list[dict] = [{"type": "text", "text": text}]
+    for img in image_paths:
+        data_uri = _image_to_data_uri(img)
+        content.append({
+            "type": "image_url",
+            "image_url": {"url": data_uri},
+        })
+    return content
+
+
+async def _chat(messages: list[dict], temperature: float = 0.7) -> str:
+    """Route chat to Claude CLI, local, or cloud LLM based on config."""
+    if settings.use_claude_cli:
+        return await claude_cli.chat(messages, temperature=temperature)
+    if _use_local_llm():
+        return await local_llm.chat(messages, model=_get_local_model(), temperature=temperature)
+    return await openrouter.chat(messages, temperature=temperature)
+
+
+async def _chat_stream(messages: list[dict], temperature: float = 0.7):
+    """Route streaming chat to Claude CLI, local, or cloud LLM based on config."""
+    if settings.use_claude_cli:
+        async for token in claude_cli.chat_stream(messages, temperature=temperature):
+            yield token
+        return
+    if _use_local_llm():
+        async for token in local_llm.chat_stream(messages, model=_get_local_model(), temperature=temperature):
+            yield token
+    else:
+        async for token in openrouter.chat_stream(messages, temperature=temperature):
+            yield token
+
+
+async def enhance_prompt(concept: str, images: list[str | Path] | None = None) -> str:
     """Take a simple concept and return an enhanced image generation prompt."""
     messages = [
         {"role": "system", "content": ENHANCE_SYSTEM},
-        {"role": "user", "content": f"Create a logo prompt for: {concept}"},
+        {"role": "user", "content": _build_user_content(
+            f"Create a logo prompt for: {concept}", images,
+        )},
     ]
-    return await openrouter.chat(messages, temperature=0.8)
+    return await _chat(messages, temperature=0.8)
 
 
-async def generate_variations(concept: str, n: int = 5) -> list[dict]:
+async def generate_variations(
+    concept: str, n: int = 5, images: list[str | Path] | None = None,
+) -> list[dict]:
     """Generate multiple prompt variations from a concept.
 
     Returns list of dicts with 'prompt', 'concept', 'style' keys.
     """
+    text = (
+        f"I want to generate logos for this concept: {concept}\n\n"
+        f"Generate exactly {n} diverse prompt variations. "
+        "Each should explore a completely different visual direction. "
+        "Return them in the JSON format specified."
+    )
+    if images:
+        text += (
+            "\n\nI've attached reference image(s) for inspiration. "
+            "Use them to inform the visual direction, color palette, and mood."
+        )
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {
-            "role": "user",
-            "content": (
-                f"I want to generate logos for this concept: {concept}\n\n"
-                f"Generate exactly {n} diverse prompt variations. "
-                "Each should explore a completely different visual direction. "
-                "Return them in the JSON format specified."
-            ),
-        },
+        {"role": "user", "content": _build_user_content(text, images)},
     ]
-    response = await openrouter.chat(messages, temperature=0.9)
+    response = await _chat(messages, temperature=0.9)
 
     # Extract JSON from response
     try:
@@ -129,13 +213,44 @@ class ChatSession:
             {"role": "system", "content": SYSTEM_PROMPT}
         ]
         self.prompts: list[dict] = []
+        self.reference_images: list[Path] = []
 
-    async def send(self, user_message: str) -> str:
+    def seed_history(self, history: list[dict]) -> None:
+        """Append prior turns from a serialized history list.
+
+        Each item is {"role": "user"|"assistant", "content": str, "images"?: list[str|Path]}.
+        Images that don't exist on disk are silently dropped — the text still
+        carries the semantic intent of the turn.
+        """
+        for turn in history:
+            role = turn.get("role")
+            if role not in ("user", "assistant"):
+                continue
+            text = turn.get("content") or ""
+            raw_images = turn.get("images") or []
+            existing = [Path(p) for p in raw_images if Path(p).exists()]
+
+            if role == "user" and existing:
+                content = _build_user_content(text, existing)
+                if isinstance(raw_images, list) and existing:
+                    # Track ref images across the session
+                    self.reference_images = list({*self.reference_images, *existing})
+            else:
+                content = text
+
+            self.messages.append({"role": role, "content": content})
+
+    async def send(
+        self, user_message: str, images: list[str | Path] | None = None,
+    ) -> str:
         """Send a message and get the assistant's response (streaming)."""
-        self.messages.append({"role": "user", "content": user_message})
+        if images:
+            self.reference_images = [Path(p) for p in images]
+        content = _build_user_content(user_message, images)
+        self.messages.append({"role": "user", "content": content})
 
         full_response = ""
-        async for token in openrouter.chat_stream(self.messages):
+        async for token in _chat_stream(self.messages):
             full_response += token
 
         self.messages.append({"role": "assistant", "content": full_response})
@@ -152,12 +267,17 @@ class ChatSession:
 
         return full_response
 
-    async def stream(self, user_message: str):
+    async def stream(
+        self, user_message: str, images: list[str | Path] | None = None,
+    ):
         """Send a message and yield response tokens as they arrive."""
-        self.messages.append({"role": "user", "content": user_message})
+        if images:
+            self.reference_images = [Path(p) for p in images]
+        content = _build_user_content(user_message, images)
+        self.messages.append({"role": "user", "content": content})
 
         full_response = ""
-        async for token in openrouter.chat_stream(self.messages):
+        async for token in _chat_stream(self.messages):
             full_response += token
             yield token
 
@@ -178,6 +298,9 @@ class ChatSession:
 
     def get_prompts(self) -> list[dict]:
         return self.prompts
+
+    def get_reference_images(self) -> list[Path]:
+        return self.reference_images
 
     def reset(self) -> None:
         self.__init__()

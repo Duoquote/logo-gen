@@ -531,17 +531,29 @@ def create_app() -> gr.Blocks:
                 )
 
                 gr.Markdown(
-                    "### Available Image Models (OpenRouter)\n"
+                    "### Local Models (free, offline, no API key needed)\n"
+                    "- `flux1-schnell` - FLUX.1 Schnell BNB-4bit (~14s, best detail)\n"
+                    "- `zimage-turbo` - Z-Image-Turbo BNB-4bit (~17s, clean minimal)\n"
+                    "\n### Cloud Models (OpenRouter, requires API key)\n"
                     "- `openai/gpt-5-image` - GPT-5 Image (best quality)\n"
                     "- `openai/gpt-5-image-mini` - GPT-5 Image Mini (cheaper)\n"
                     "- `google/gemini-2.5-flash-image` - Gemini 2.5 Flash Image\n"
                     "- `google/gemini-3.1-flash-image-preview` - Gemini 3.1 Flash Image\n"
                     "- `google/gemini-3-pro-image-preview` - Gemini 3 Pro Image\n"
-                    "\n### Available LLM Models\n"
+                    "\n### LLM Models\n"
+                    "#### Local (free, via OpenAI-compatible API)\n"
+                    "- `local/qwen3.5:9b` - Qwen 3.5 9B (best quality/size ratio)\n"
+                    "- `local/qwen3.5:4b` - Qwen 3.5 4B (lighter)\n"
+                    "- `local/gemma3:12b` - Gemma 3 12B\n"
+                    "- `local/mistral-nemo` - Mistral Nemo 12B\n"
+                    "\n#### Cloud (OpenRouter)\n"
                     "- `anthropic/claude-sonnet-4` - Claude Sonnet 4\n"
                     "- `openai/gpt-4o` - GPT-4o\n"
                     "- `google/gemini-2.5-flash` - Gemini 2.5 Flash\n"
                     "- `anthropic/claude-haiku-3.5` - Claude Haiku\n"
+                    "\n*Prefix local models with `local/`. Works with Ollama, LM Studio, vLLM, "
+                    "or any OpenAI-compatible API. Configure endpoint in `.env` via "
+                    "`LOCAL_LLM_BASE_URL`.*"
                 )
 
     return app

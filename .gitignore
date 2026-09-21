@@ -14,3 +14,12 @@ wheels/
 
 # Output
 output/
+
+# Local model cache
+.models/
+
+# Frontend
+node_modules/
+*.tsbuildinfo
+frontend/dist/
+frontend/bun.lock

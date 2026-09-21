@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import mimetypes
 import re
 from pathlib import Path
 
@@ -109,11 +110,21 @@ def _extract_urls(text: str) -> list[str]:
     return re.findall(url_pattern, text)
 
 
+def _file_to_data_uri(path: Path) -> str:
+    """Convert an image file to a base64 data URI."""
+    suffix = path.suffix.lower().lstrip(".")
+    mime_map = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "webp": "webp", "gif": "gif"}
+    mime_type = f"image/{mime_map.get(suffix, 'png')}"
+    b64 = base64.b64encode(path.read_bytes()).decode()
+    return f"data:{mime_type};base64,{b64}"
+
+
 async def generate_image(
     prompt: str,
     model: str,
     seed: int | None = None,
     save_dir: Path | None = None,
+    reference_images: list[Path] | None = None,
 ) -> list[Path]:
     """Generate an image using an OpenRouter image-capable model.
 
@@ -130,7 +141,18 @@ async def generate_image(
         "The design should be centered and suitable as a brand icon."
     )
 
-    messages = [{"role": "user", "content": full_prompt}]
+    # Build multimodal content if reference images are provided
+    if reference_images:
+        content: list[dict] = [{"type": "text", "text": full_prompt}]
+        for img_path in reference_images:
+            if img_path.exists():
+                content.append({
+                    "type": "image_url",
+                    "image_url": {"url": _file_to_data_uri(img_path)},
+                })
+        messages = [{"role": "user", "content": content}]
+    else:
+        messages = [{"role": "user", "content": full_prompt}]
 
     payload: dict = {
         "model": model,

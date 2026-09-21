@@ -15,6 +15,17 @@ class Settings(BaseSettings):
     # LLM model for prompt enhancement / chat
     llm_model: str = "anthropic/claude-sonnet-4"
 
+    # When true, all chat routes through the locally-installed `claude` CLI
+    # (uses the user's Claude subscription). Ignores llm_model entirely.
+    # The user is responsible for `claude login`.
+    use_claude_cli: bool = False
+
+    # Local LLM via any OpenAI-compatible API (used when llm_model starts with "local/")
+    # Works with Ollama, LM Studio, vLLM, text-generation-webui, etc.
+    local_llm_model: str = "qwen3.5:9b"
+    local_llm_base_url: str = "http://localhost:11434/v1"
+    local_llm_api_key: str = ""
+
     # Image generation models (via OpenRouter - must support image output)
     image_models: list[str] = [
         "openai/gpt-5-image-mini",
