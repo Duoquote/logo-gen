@@ -16,6 +16,7 @@ import subprocess
 from importlib import metadata
 
 from logo_gen import paths
+from logo_gen.spawn import NO_CONSOLE
 
 
 def forced_device() -> str | None:
@@ -35,9 +36,9 @@ def _nvidia_smi() -> tuple[dict, str]:
     try:
         q = subprocess.run(
             [exe, "--query-gpu=name,memory.total,driver_version", "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, timeout=10, **NO_CONSOLE,
         ).stdout.strip().splitlines()
-        header = subprocess.run([exe], capture_output=True, text=True, timeout=10).stdout
+        header = subprocess.run([exe], capture_output=True, text=True, timeout=10, **NO_CONSOLE).stdout
     except (OSError, subprocess.SubprocessError):
         return {}, ""
     if not q:

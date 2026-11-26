@@ -17,6 +17,8 @@ import json
 import shutil
 import sys
 
+from logo_gen.spawn import NO_CONSOLE
+
 
 def _resolve_binary() -> str:
     """Resolve the claude CLI binary path. Raises if not found."""
@@ -116,6 +118,7 @@ async def _spawn(argv: list[str], stdin_data: str):
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        **NO_CONSOLE,
     )
 
 
@@ -203,6 +206,7 @@ async def is_available() -> bool:
             *argv,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            **NO_CONSOLE,
         )
         await asyncio.wait_for(proc.communicate(), timeout=5)
         return proc.returncode == 0

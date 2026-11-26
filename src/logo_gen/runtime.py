@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from logo_gen import paths, system
+from logo_gen.spawn import NO_CONSOLE
 
 MARKER = paths.ROOT / ".tools" / "local-stack"
 
@@ -91,6 +92,7 @@ async def _sync() -> None:
         uv, "sync", "--inexact", "--extra", "local", "--extra", variant,
         cwd=str(paths.ROOT), env=env,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+        **NO_CONSOLE,
     )
     assert proc.stdout
     async for raw in proc.stdout:

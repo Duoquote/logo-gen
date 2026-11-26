@@ -21,6 +21,7 @@ from huggingface_hub import HfApi
 from huggingface_hub.errors import GatedRepoError, HfHubHTTPError, RepositoryNotFoundError
 
 from logo_gen import paths, system
+from logo_gen.spawn import NO_CONSOLE
 from logo_gen.config import get_secret
 from logo_gen.local_models.registry import MODELS, LocalModel
 
@@ -267,6 +268,7 @@ async def _run_install(spec: LocalModel, st: InstallState) -> None:
     proc = await asyncio.create_subprocess_exec(
         sys.executable, "-m", "logo_gen.local_models.worker",
         stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env,
+        **NO_CONSOLE,
     )
     st.proc = proc
     assert proc.stdin
