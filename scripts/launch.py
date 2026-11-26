@@ -160,6 +160,114 @@ def frontend(state: dict, force_build: bool) -> None:
 # ── Main ────────────────────────────────────────────────────────────
 
 
+def tie_children_to_this_process() -> None:
+    """On Windows, make the server exit when this launcher does.
+
+    Windows doesn't end child processes with their parent, so stopping the
+    launcher (from a task manager or a script, not Ctrl+C) left the server
+    running on the port. A job object with "kill on close" fixes that:
+    children join the job, and the job ends when this process does.
+    """
+    if not IS_WIN:
+        return
+    import ctypes
+    from ctypes import wintypes
+
+    class BasicLimits(ctypes.Structure):
+        _fields_ = [
+            ("PerProcessUserTimeLimit", ctypes.c_int64), ("PerJobUserTimeLimit", ctypes.c_int64),
+            ("LimitFlags", wintypes.DWORD), ("MinimumWorkingSetSize", ctypes.c_size_t),
+            ("MaximumWorkingSetSize", ctypes.c_size_t), ("ActiveProcessLimit", wintypes.DWORD),
+            ("Affinity", ctypes.c_size_t), ("PriorityClass", wintypes.DWORD), ("SchedulingClass", wintypes.DWORD),
+        ]
+
+    class IoCounters(ctypes.Structure):
+        _fields_ = [(n, ctypes.c_uint64) for n in ("r", "w", "o", "rb", "wb", "ob")]
+
+    class ExtendedLimits(ctypes.Structure):
+        _fields_ = [
+            ("Basic", BasicLimits), ("Io", IoCounters), ("ProcessMemoryLimit", ctypes.c_size_t),
+            ("JobMemoryLimit", ctypes.c_size_t), ("PeakProcessMemoryUsed", ctypes.c_size_t),
+            ("PeakJobMemoryUsed", ctypes.c_size_t),
+        ]
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateJobObjectW.restype = wintypes.HANDLE
+    k32.GetCurrentProcess.restype = wintypes.HANDLE
+    job = k32.CreateJobObjectW(None, None)
+    if not job:
+        return
+    info = ExtendedLimits()
+    info.Basic.LimitFlags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    if k32.SetInformationJobObject(wintypes.HANDLE(job), 9, ctypes.byref(info), ctypes.sizeof(info)):
+        # If this fails (an outer job forbids nesting) we just keep the old behavior.
+        k32.AssignProcessToJobObject(wintypes.HANDLE(job), wintypes.HANDLE(k32.GetCurrentProcess()))
+
+
+def _windows_parents() -> dict[int, tuple[int, str]]:
+    """pid -> (parent pid, exe name) for every process, from a ToolHelp snapshot."""
+    import ctypes
+    from ctypes import wintypes
+
+    class Entry(ctypes.Structure):
+        _fields_ = [
+            ("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("th32ProcessID", wintypes.DWORD),
+            ("th32DefaultHeapID", ctypes.c_size_t), ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
+            ("th32ParentProcessID", wintypes.DWORD), ("pcPriClassBase", ctypes.c_long), ("dwFlags", wintypes.DWORD),
+            ("szExeFile", ctypes.c_wchar * 260),
+        ]
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    snap = k32.CreateToolhelp32Snapshot(0x2, 0)  # TH32CS_SNAPPROCESS
+    out: dict[int, tuple[int, str]] = {}
+    e = Entry()
+    e.dwSize = ctypes.sizeof(Entry)
+    ok = k32.Process32FirstW(snap, ctypes.byref(e))
+    while ok:
+        out[e.th32ProcessID] = (e.th32ParentProcessID, e.szExeFile.lower())
+        ok = k32.Process32NextW(snap, ctypes.byref(e))
+    k32.CloseHandle(snap)
+    return out
+
+
+def _starter_pid() -> int:
+    """The process that started us, skipping the python.exe trampolines venvs use on Windows."""
+    if not IS_WIN:
+        return os.getppid()
+    procs = _windows_parents()
+    pid = os.getppid()
+    seen = set()
+    while pid in procs and procs[pid][1] == "python.exe" and pid not in seen:
+        seen.add(pid)
+        pid = procs[pid][0]
+    return pid
+
+
+def exit_with_parent() -> None:
+    """Exit when whatever started us (uv) goes away, so the server doesn't outlive it."""
+    import threading
+
+    parent = _starter_pid()
+
+    def watch() -> None:
+        if IS_WIN:
+            import ctypes
+
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            k32.OpenProcess.restype = ctypes.c_void_p
+            handle = k32.OpenProcess(0x00100000, False, parent)  # SYNCHRONIZE
+            if not handle:
+                return
+            k32.WaitForSingleObject(ctypes.c_void_p(handle), 0xFFFFFFFF)
+        else:
+            while os.getppid() == parent:
+                time.sleep(2)
+        os._exit(0)  # closes the job handle, which stops the server
+
+    threading.Thread(target=watch, daemon=True).start()
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="logo-gen")
     p.add_argument("--uv", required=True, help=argparse.SUPPRESS)
@@ -177,6 +285,8 @@ def main() -> None:
         frontend(state, args.rebuild)
     save_state(state)
     say(f"Ready in {time.time() - t0:.1f}s")
+    tie_children_to_this_process()
+    exit_with_parent()
 
     env = os.environ.copy()
     env["LOGO_GEN_UV"] = args.uv
