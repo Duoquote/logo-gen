@@ -228,6 +228,16 @@ def calibrate(
         for b in sizes:
             if should_stop():
                 break
+            ok = [r for r in results if r["ok"] and r.get("peak_gb")]
+            if total_gb and len(ok) >= 2:
+                # Peak memory grows about linearly with batch size; skip a size that can't fit.
+                a, z = ok[-2], ok[-1]
+                per = (z["peak_gb"] - a["peak_gb"]) / (z["batch"] - a["batch"])
+                predicted = z["peak_gb"] + per * (b - z["batch"])
+                if predicted > total_gb:
+                    results.append({"batch": b, "ok": False,
+                                    "error": f"skipped, would need about {predicted:.1f} GB"})
+                    break
             on_status(f"Testing a batch of {b}")
             _free(torch)
             if cuda:

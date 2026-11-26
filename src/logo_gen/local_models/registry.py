@@ -65,7 +65,7 @@ register(LocalModel(
     guidance=1.0,
     resolution=1024,
     max_batch=4,
-    blurb="6B model, pre-quantized to 4-bit by Unsloth. Clean, minimal results in about 15 s.",
+    blurb="6B model, pre-quantized to 4-bit by Unsloth. Clean, minimal results, about 30 s per image on an RTX 3080.",
 ))
 
 register(LocalModel(
