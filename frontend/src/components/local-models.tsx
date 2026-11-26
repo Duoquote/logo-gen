@@ -1,5 +1,7 @@
 import { Link } from "@tanstack/react-router"
-import { DownloadIcon, ExternalLinkIcon, Loader2Icon, PauseIcon, RefreshCwIcon, Trash2Icon } from "lucide-react"
+import { CheckIcon, DownloadIcon, ExternalLinkIcon, GaugeIcon, Loader2Icon, PauseIcon, RefreshCwIcon, Trash2Icon } from "lucide-react"
+
+import { JobProgress } from "@/components/job-progress"
 
 import {
   AlertDialog,
@@ -19,7 +21,18 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Progress } from "@/components/ui/progress"
 import type { LocalModel, RuntimeStatus, Support, SystemInfo } from "@/lib/api"
 import { formatBytes } from "@/lib/format"
-import { useCancelInstall, useCheckAccess, useInstallModel, useLocalModels, useUninstallModel } from "@/lib/queries"
+import {
+  useCalibrate,
+  useCancelInstall,
+  useCheckAccess,
+  useInstallModel,
+  useJob,
+  useJobs,
+  useLocalModels,
+  useSettings,
+  useUninstallModel,
+  useUpdateSettings,
+} from "@/lib/queries"
 
 const DEVICE_LABEL = { cuda: "NVIDIA GPU", mps: "Apple Silicon", cpu: "CPU only" } as const
 
@@ -176,6 +189,7 @@ function ModelCard({ m }: { m: LocalModel }) {
           </span>
         )}
         {m.state === "error" && <p className="text-destructive">{m.message}</p>}
+        {m.installed && m.runs_here !== "no" && <SpeedTest m={m} />}
       </CardContent>
       <CardFooter className="gap-2">
         {busy ? (
@@ -212,5 +226,89 @@ function ModelCard({ m }: { m: LocalModel }) {
         )}
       </CardFooter>
     </Card>
+  )
+}
+
+function SpeedTest({ m }: { m: LocalModel }) {
+  const jobs = useJobs()
+  const start = useCalibrate()
+  const settings = useSettings()
+  const update = useUpdateSettings()
+  const running = jobs.data?.find((j) => j.kind === "calibrate" && j.status === "running" && j.title.endsWith(m.name))
+  const job = useJob(running?.id ?? start.data?.id)
+  const cal = job.data?.status === "done" && job.data.result.results ? (job.data.result as LocalModel["calibration"]) : m.calibration
+  const busy = job.data?.status === "running"
+  const choose = (batch: number) =>
+    update.mutate({ local_batch: { ...(settings.data?.settings.local_batch ?? {}), [m.id]: batch } })
+
+  return (
+    <div className="flex flex-col gap-2 border-t pt-3">
+      <div className="flex items-center gap-2">
+        <span className="flex-1">
+          Batch size: <span className="font-medium">{m.batch}</span> at a time
+          <span className="text-muted-foreground"> ({m.batch_source === "calibrated" ? "picked from a speed test" : "default"})</span>
+        </span>
+        <Button size="xs" variant="outline" disabled={busy || start.isPending} onClick={() => start.mutate(m.id)}>
+          {busy ? <Loader2Icon className="animate-spin" /> : <GaugeIcon />}
+          Speed test
+        </Button>
+      </div>
+      {!cal && !busy && (
+        <p className="text-muted-foreground">
+          The speed test tries batch sizes on this {m.device === "cuda" ? "GPU" : "machine"}, times each one and
+          records peak memory, then lets you pick. It takes a few minutes and costs nothing.
+        </p>
+      )}
+      {job.data && busy && <JobProgress job={job.data} />}
+      {cal && !busy && (
+        <>
+          <table className="w-full text-left whitespace-nowrap tabular-nums [&_td]:py-0.5 [&_td]:pr-4 [&_th]:pr-4">
+            <thead className="text-muted-foreground">
+              <tr>
+                <th className="font-normal">Batch</th>
+                <th className="font-normal">Time</th>
+                <th className="font-normal">Per image</th>
+                <th className="font-normal">Peak VRAM</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cal.results.map((r) => (
+                <tr key={r.batch} className={r.ok ? "" : "text-destructive"}>
+                  <td>{r.batch}</td>
+                  <td className={r.ok ? "" : "whitespace-normal"} colSpan={r.ok ? 1 : 3}>
+                    {r.ok ? `${r.seconds} s` : r.error}
+                  </td>
+                  {r.ok && (
+                    <>
+                      <td>{r.per_image} s</td>
+                      <td>
+                        {r.peak_gb != null ? `${r.peak_gb} GB` : "n/a"}
+                        {r.note && <span className="whitespace-normal text-muted-foreground"> ({r.note})</span>}
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <span className="text-muted-foreground">
+            {cal.vram_gb ? `${cal.vram_gb} GB card. ` : ""}Loading the model took {cal.load_seconds} s and isn't counted.
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {cal.options.map((o) => (
+              <Button
+                key={o.key}
+                size="xs"
+                variant={m.batch === o.batch && m.batch_source === "calibrated" ? "default" : "outline"}
+                onClick={() => choose(o.batch)}
+              >
+                {m.batch === o.batch && m.batch_source === "calibrated" && <CheckIcon />}
+                {o.label}: {o.batch} at a time, {o.per_image} s/image
+              </Button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   )
 }

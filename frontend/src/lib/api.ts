@@ -57,6 +57,11 @@ export interface Settings {
   variations: number
   aspect_ratio: string
   transparent_background: boolean
+  max_images_cloud: number
+  max_images_local: number
+  model_caps: Record<string, number>
+  cloud_concurrency: number
+  local_batch: Record<string, number>
 }
 
 export interface SecretStatus {
@@ -147,6 +152,45 @@ export interface LocalModel {
   speed_bps: number
   message: string
   installed: boolean
+  batch: number
+  batch_source: "calibrated" | "default"
+  calibration: Calibration | null
+  cap: number
+}
+
+export interface CalibrationRow {
+  batch: number
+  ok: boolean
+  seconds?: number
+  per_image?: number
+  peak_gb?: number | null
+  error?: string
+  note?: string
+}
+
+export interface CalibrationOption extends CalibrationRow {
+  key: "fastest" | "balanced" | "single"
+  label: string
+}
+
+export interface Calibration {
+  model_id: string
+  device: string
+  vram_gb: number | null
+  load_seconds: number
+  results: CalibrationRow[]
+  options: CalibrationOption[]
+  created_at?: number
+}
+
+export interface Spend {
+  credits: number
+  byok: number
+  total: number
+  chat_calls: number
+  cloud_images: number
+  local_images: number
+  by_kind: Record<string, { credits: number; byok: number; calls: number }>
 }
 
 export interface SystemInfo {
@@ -186,7 +230,7 @@ export interface Prompt {
 
 export interface Job {
   id: string
-  kind: "generate" | "quick" | "variations"
+  kind: "generate" | "quick" | "variations" | "calibrate"
   title: string
   status: "running" | "done" | "error" | "cancelled"
   done: number
@@ -194,10 +238,14 @@ export interface Job {
   message: string
   errors: string[]
   image_ids: string[]
-  result: { prompts?: Prompt[]; images?: number; source_id?: string }
+  result: { prompts?: Prompt[]; images?: number; source_id?: string } & Partial<Calibration>
   created_at: number
   finished_at: number | null
   cost: number
+  byok: number
+  local_images: number
+  chat_id: string | null
+  notes: string[]
 }
 
 export interface ImageItem {
@@ -222,6 +270,8 @@ export interface ImageItem {
   favorite: boolean
   note: string
   vector: boolean
+  primary_id: string | null
+  primary?: ImageItem | null
 }
 
 export interface ImageDetail extends ImageItem {
@@ -248,6 +298,7 @@ export interface ChatMessage {
 
 export interface Chat extends ChatSummary {
   messages: ChatMessage[]
+  spend: Spend
 }
 
 export interface ToolOptions {
@@ -275,7 +326,7 @@ export type ChatEvent =
   | { type: "start"; model: string }
   | { type: "token"; content: string }
   | { type: "reasoning"; content: string }
-  | { type: "usage"; cost: number | null }
+  | { type: "usage"; credits: number; byok: number }
   | { type: "done"; message_id: number; content: string; prompts: Prompt[] }
   | { type: "error"; message: string }
 

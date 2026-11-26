@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { maxPerDirection } from "@/lib/caps"
 import { useCostEstimate } from "@/lib/cost"
 import { formatUsd } from "@/lib/format"
 import { useImages, useJob, useQuickGenerate, useSettings, useUpdateSettings } from "@/lib/queries"
@@ -38,7 +39,9 @@ function GeneratePage() {
 
   const s = settings.data?.settings
   const directions = enhance ? (s?.variations ?? 4) : 1
-  const estimate = useCostEstimate(s?.image_models ?? [], directions * (s?.images_per_prompt ?? 1))
+  const maxPer = s ? maxPerDirection(s, s.image_models, directions) : 1
+  const per = Math.min(s?.images_per_prompt ?? 1, maxPer)
+  const estimate = useCostEstimate(s?.image_models ?? [], directions * per)
   const jobImages = useImages({ job_id: jobId }, !!jobId)
   const recent = useImages({ kind: "generated", limit: 24 })
 
@@ -52,7 +55,7 @@ function GeneratePage() {
         brief,
         enhance,
         count: s.variations,
-        images_per_prompt: s.images_per_prompt,
+        images_per_prompt: per,
         models: s.image_models,
         references: refs.refs.map((r) => r.path),
       },
@@ -107,14 +110,14 @@ function GeneratePage() {
             <div className="flex flex-col gap-1.5">
               <Label>Images each</Label>
               <Select
-                value={String(s?.images_per_prompt ?? 1)}
+                value={String(per)}
                 onValueChange={(v) => update.mutate({ images_per_prompt: Number(v) })}
               >
-                <SelectTrigger className="w-24">
+                <SelectTrigger className="w-24" title={`Per direction and model. Capped at ${maxPer} by Settings, Limits.`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[1, 2, 3, 4].map((n) => (
+                  {Array.from({ length: Math.min(maxPer, 8) }, (_, i) => i + 1).map((n) => (
                     <SelectItem key={n} value={String(n)}>
                       {n}
                     </SelectItem>

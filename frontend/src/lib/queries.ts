@@ -16,6 +16,7 @@ import {
   type RuntimeStatus,
   type Settings,
   type SettingsResponse,
+  type Spend,
   type SystemInfo,
   type ToolOptions,
 } from "@/lib/api"
@@ -42,6 +43,7 @@ export const keys = {
   chats: ["chats"] as const,
   chat: (id: string) => ["chats", id] as const,
   tools: ["tools"] as const,
+  spend: (chatId?: string) => ["spend", chatId ?? "all"] as const,
   localLlm: ["local-llm"] as const,
   claudeCli: ["claude-cli"] as const,
 }
@@ -55,7 +57,13 @@ export function useUpdateSettings() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (patch: Partial<Settings>) => api.put<SettingsResponse>("/settings", patch),
-    onSuccess: (data) => qc.setQueryData(keys.settings, data),
+    onSuccess: (data, patch) => {
+      qc.setQueryData(keys.settings, data)
+      // Caps and batch sizes are shown on the local model cards too.
+      if ("local_batch" in patch || "model_caps" in patch || "max_images_local" in patch) {
+        qc.invalidateQueries({ queryKey: keys.localModels })
+      }
+    },
   })
 }
 
@@ -144,6 +152,14 @@ function useLocalModelAction(path: (id: string) => string, method: "post" | "del
   })
 }
 
+export const useCalibrate = () => useStartJob((id: string) => api.post<Job>(`/local-models/${id}/calibrate`))
+
+export const useSpend = (chatId?: string) =>
+  useQuery({
+    queryKey: keys.spend(chatId),
+    queryFn: () => api.get<Spend>(`/spend${chatId ? `?chat_id=${chatId}` : ""}`),
+  })
+
 export const useInstallModel = () => useLocalModelAction((id) => `/local-models/${id}/install`, "post")
 export const useCancelInstall = () => useLocalModelAction((id) => `/local-models/${id}/cancel`, "post")
 export const useUninstallModel = () => useLocalModelAction((id) => `/local-models/${id}`, "del")
@@ -177,7 +193,12 @@ export function useJob(id: string | null | undefined) {
       if (!prev || prev.image_ids.length !== job.image_ids.length || prev.status !== job.status) {
         qc.invalidateQueries({ queryKey: ["images"] })
       }
-      if (job.status !== "running") qc.invalidateQueries({ queryKey: keys.system })
+      if (job.status !== "running" || job.cost !== prev?.cost) {
+        qc.invalidateQueries({ queryKey: keys.system })
+        qc.invalidateQueries({ queryKey: ["spend"] })
+        if (job.chat_id) qc.invalidateQueries({ queryKey: keys.chat(job.chat_id) })
+      }
+      if (job.kind === "calibrate" && job.status !== "running") qc.invalidateQueries({ queryKey: keys.localModels })
       return job
     },
     enabled: !!id,
@@ -282,6 +303,11 @@ function useImageMutation<T, R>(fn: (vars: T) => Promise<R>) {
 export const useToggleFavorite = () =>
   useImageMutation(({ id, favorite }: { id: string; favorite: boolean }) =>
     api.patch<ImageItem>(`/images/${id}`, { favorite }),
+  )
+
+export const useSetPrimary = () =>
+  useImageMutation(({ id, childId }: { id: string; childId: string | null }) =>
+    api.put<ImageItem>(`/images/${id}/primary`, { child_id: childId }),
   )
 
 export const useDeleteImage = () => useImageMutation((id: string) => api.del(`/images/${id}`))

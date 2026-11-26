@@ -8,8 +8,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Toggle } from "@/components/ui/toggle"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { formatUsd } from "@/lib/format"
-import { useImages, useSystem } from "@/lib/queries"
+import { SpendLine } from "@/components/spend"
+import { useImages, useSpend, useSystem } from "@/lib/queries"
 
 type Kind = "all" | "generated" | "upscaled" | "cleaned"
 
@@ -30,6 +30,7 @@ function GalleryPage() {
   const navigate = Route.useNavigate()
   const [q, setQ] = useState(search.q ?? "")
   const system = useSystem()
+  const spend = useSpend()
 
   // Debounce the search box into the URL.
   useEffect(() => {
@@ -72,11 +73,10 @@ function GalleryPage() {
           <HeartIcon />
           Favorites
         </Toggle>
-        {system.data?.library && (
-          <span className="ml-auto text-xs text-muted-foreground">
-            {system.data.library.images} images · {formatUsd(system.data.library.cost, 2)} spent on OpenRouter images
-          </span>
-        )}
+        <span className="ml-auto flex gap-2 text-xs text-muted-foreground">
+          {system.data?.library && <span>{system.data.library.images} images ·</span>}
+          <SpendLine spend={spend.data} label="Spent so far" />
+        </span>
       </div>
 
       {images.data && images.data.length === 0 ? (

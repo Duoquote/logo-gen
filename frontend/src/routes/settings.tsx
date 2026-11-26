@@ -12,12 +12,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import type { ReasoningEffort, SecretStatus, Settings } from "@/lib/api"
+import { SpendLine } from "@/components/spend"
 import { formatUsd, perMillion } from "@/lib/format"
 import {
   useCatalog,
   useClaudeCli,
   useKeyStatus,
   useLocalLlm,
+  useLocalModels,
+  useSpend,
   useResetSettings,
   useSetSecret,
   useSettings,
@@ -36,6 +39,8 @@ function SettingsPage() {
       <OpenRouterCard secret={data.secrets.OPENROUTER_KEY} />
       <ChatCard s={data.settings} />
       <ImageCard s={data.settings} />
+      <LimitsCard s={data.settings} />
+      <SpendCard />
       <HuggingFaceCard secret={data.secrets.HF_TOKEN} />
       <div>
         <Button
@@ -348,6 +353,197 @@ function HuggingFaceCard({ secret }: { secret: SecretStatus }) {
       </CardHeader>
       <CardContent>
         <SecretField name="HF_TOKEN" secret={secret} placeholder="hf_..." />
+      </CardContent>
+    </Card>
+  )
+}
+
+function NumberField({
+  label,
+  value,
+  min,
+  max,
+  onSave,
+  hint,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  onSave: (n: number) => void
+  hint?: string
+}) {
+  const [draft, setDraft] = useState(String(value))
+  const commit = () => {
+    const n = Math.round(Number(draft))
+    if (Number.isFinite(n) && n >= min && n <= max && n !== value) onSave(n)
+    else setDraft(String(value))
+  }
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label>{label}</Label>
+      <Input
+        type="number"
+        min={min}
+        max={max}
+        className="w-28"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === "Enter" && commit()}
+      />
+      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+    </div>
+  )
+}
+
+function LimitsCard({ s }: { s: Settings }) {
+  const update = useUpdateSettings()
+  const local = useLocalModels()
+  const [model, setModel] = useState("")
+  const [cap, setCap] = useState("4")
+  const overrides = Object.entries(s.model_caps)
+  const installed = (local.data?.models ?? []).filter((m) => m.installed)
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Limits and throughput</CardTitle>
+        <CardDescription>
+          Caps on how many images one model makes in a single request. The server enforces them too, so a request over
+          the cap is trimmed and the job says so.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-5">
+        <div className="flex flex-wrap gap-6">
+          <NumberField
+            key={`c${s.max_images_cloud}`}
+            label="OpenRouter, per model"
+            value={s.max_images_cloud}
+            min={1}
+            max={100}
+            onSave={(n) => update.mutate({ max_images_cloud: n })}
+          />
+          <NumberField
+            key={`l${s.max_images_local}`}
+            label="Local, per model"
+            value={s.max_images_local}
+            min={1}
+            max={200}
+            onSave={(n) => update.mutate({ max_images_local: n })}
+          />
+          <NumberField
+            key={`p${s.cloud_concurrency}`}
+            label="OpenRouter requests in parallel"
+            value={s.cloud_concurrency}
+            min={1}
+            max={16}
+            onSave={(n) => update.mutate({ cloud_concurrency: n })}
+            hint="Halves itself on a rate limit, then climbs back."
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label>Per-model caps</Label>
+          {overrides.length === 0 && <span className="text-xs text-muted-foreground">None. Every model uses the caps above.</span>}
+          {overrides.map(([id, n]) => (
+            <div key={id} className="flex items-center gap-2 text-xs">
+              <code className="min-w-0 flex-1 truncate">{id}</code>
+              <span className="tabular-nums">{n} images</span>
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  const next = { ...s.model_caps }
+                  delete next[id]
+                  update.mutate({ model_caps: next })
+                }}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+          <form
+            className="flex flex-wrap gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const n = Number(cap)
+              if (!model.trim() || !(n >= 1)) return
+              update.mutate({ model_caps: { ...s.model_caps, [model.trim()]: Math.round(n) } })
+              setModel("")
+            }}
+          >
+            <Input
+              placeholder="Model id, e.g. openai/gpt-image-2 or local/zimage-turbo"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="min-w-64 flex-1"
+              list="cap-models"
+            />
+            <datalist id="cap-models">
+              {[...s.image_models, ...installed.map((m) => m.ref)].map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
+            <Input type="number" min={1} max={200} value={cap} onChange={(e) => setCap(e.target.value)} className="w-24" />
+            <Button type="submit" variant="outline" disabled={!model.trim()}>
+              Add cap
+            </Button>
+          </form>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label>Local batch sizes</Label>
+          {installed.length === 0 ? (
+            <span className="text-xs text-muted-foreground">No local models installed.</span>
+          ) : (
+            installed.map((m) => (
+              <div key={m.id} className="flex items-center gap-2 text-xs">
+                <span className="min-w-0 flex-1 truncate">{m.name}</span>
+                <span className="tabular-nums">
+                  {m.batch} at a time ({m.batch_source === "calibrated" ? "from a speed test" : "default"})
+                </span>
+                <Button asChild size="xs" variant="outline">
+                  <Link to="/models" search={{ tab: "local" }}>
+                    Speed test
+                  </Link>
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function SpendCard() {
+  const spend = useSpend()
+  const kinds = Object.entries(spend.data?.by_kind ?? {})
+  const label: Record<string, string> = { chat: "Designer chat", prompts: "Prompt writing", image: "Images" }
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Spend</CardTitle>
+        <CardDescription>
+          Everything logo-gen has spent from this folder, from OpenRouter's own usage numbers. Local models cost $0.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2 text-xs">
+        <SpendLine spend={spend.data} label="Total" />
+        {kinds.map(([k, v]) => (
+          <div key={k} className="flex gap-2">
+            <span className="w-32 text-muted-foreground">{label[k] ?? k}</span>
+            <span className="tabular-nums">
+              {formatUsd(v.credits + v.byok, 4)}
+              {v.byok > 0 && ` (${formatUsd(v.byok, 4)} BYOK)`} · {v.calls} call{v.calls === 1 ? "" : "s"}
+            </span>
+          </div>
+        ))}
+        <span className="text-muted-foreground">
+          BYOK is what a provider billed on your own key through OpenRouter (for example an Anthropic key added to your
+          OpenRouter account). OpenRouter itself charges no credits for those calls.
+        </span>
       </CardContent>
     </Card>
   )

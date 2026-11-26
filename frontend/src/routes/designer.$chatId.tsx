@@ -8,13 +8,16 @@ import { ImageDialog } from "@/components/image-dialog"
 import { ImageGrid } from "@/components/image-grid"
 import { JobProgress } from "@/components/job-progress"
 import { Markdown } from "@/components/markdown"
+import { SpendLine } from "@/components/spend"
 import { ImageModelPicker } from "@/components/model-picker"
 import { ReferenceImages, useReferenceUploads } from "@/components/reference-images"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Textarea } from "@/components/ui/textarea"
 import { api, fileUrl, streamChat, type Chat, type ChatMessage, type Prompt } from "@/lib/api"
+import { maxPerDirection } from "@/lib/caps"
 import { useCostEstimate } from "@/lib/cost"
 import { formatUsd } from "@/lib/format"
 import { keys, useGenerate, useImages, useJob, useSettings, useUpdateSettings } from "@/lib/queries"
@@ -108,6 +111,12 @@ function ChatPage() {
   return (
     <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_minmax(280px,38%)]">
       <section className="flex min-h-0 flex-col border-r">
+        {!isNew && chat.data && (
+          <div className="flex items-center gap-3 border-b px-4 py-2">
+            <span className="min-w-0 flex-1 truncate text-xs font-medium">{chat.data.title || "Untitled"}</span>
+            <SpendLine spend={chat.data.spend} label="This chat" />
+          </div>
+        )}
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-3xl flex-col gap-5 p-6">
             {messages.length === 0 && !pending && (
@@ -288,7 +297,11 @@ function PromptPicker({
   const update = useUpdateSettings()
   const generate = useGenerate()
   const s = settings.data?.settings
-  const estimate = useCostEstimate(s?.image_models ?? [], selected.size * (s?.images_per_prompt ?? 1))
+  const models = s?.image_models ?? []
+  const maxPer = s ? maxPerDirection(s, models, Math.max(1, selected.size)) : 1
+  const [perChoice, setPerChoice] = useState<number | null>(null)
+  const per = Math.min(perChoice ?? s?.images_per_prompt ?? 1, maxPer)
+  const estimate = useCostEstimate(models, selected.size * per)
 
   const toggle = (i: number) =>
     setSelected((prev) => {
@@ -323,6 +336,18 @@ function PromptPicker({
           value={s?.image_models ?? []}
           onChange={(v) => update.mutate({ image_models: v })}
         />
+        <Select value={String(per)} onValueChange={(v) => setPerChoice(Number(v))}>
+          <SelectTrigger className="w-36" title={`Images per direction, per model. Capped at ${maxPer} by Settings, Limits.`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Array.from({ length: Math.min(maxPer, 8) }, (_, i) => i + 1).map((n) => (
+              <SelectItem key={n} value={String(n)}>
+                {n} per direction
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button
           size="sm"
           disabled={!selected.size || generate.isPending || busy || !s?.image_models.length}
@@ -331,7 +356,7 @@ function PromptPicker({
               {
                 prompts: prompts.filter((_, i) => selected.has(i)),
                 models: s?.image_models,
-                images_per_prompt: s?.images_per_prompt,
+                images_per_prompt: per,
                 references,
                 chat_id: chatId,
               },
@@ -340,12 +365,15 @@ function PromptPicker({
           }
         >
           {generate.isPending ? <Loader2Icon className="animate-spin" /> : <WandSparklesIcon />}
-          Generate {estimate.images}
+          Generate {selected.size * per * Math.max(1, models.length)}
         </Button>
       </div>
-      {estimate.cost !== null && estimate.cost > 0 && (
-        <span className="text-[11px] text-muted-foreground">About {formatUsd(estimate.cost)}</span>
-      )}
+      <span className="text-[11px] text-muted-foreground">
+        {selected.size * per} per model
+        {models.length > 1 && ` across ${models.length} models`}
+        {estimate.cost !== null && estimate.cost > 0 && ` · about ${formatUsd(estimate.cost)}`}
+        {models.some((m) => m.startsWith("local/")) && " · local images are free"}
+      </span>
     </div>
   )
 }
