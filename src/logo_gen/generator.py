@@ -1,288 +1,255 @@
-"""Logo generation orchestrator - runs prompts through multiple models/seeds."""
+"""Run prompts through image models and save results to the library."""
 
 from __future__ import annotations
 
 import asyncio
+import io
 import random
+import re
 import time
-from dataclasses import dataclass, field
+import uuid
 from pathlib import Path
 
+from PIL import Image
+
+from logo_gen import library, paths
 from logo_gen.clients import openrouter
-from logo_gen.clients.local_diffusion import is_local_model, parse_model_spec
-from logo_gen.config import settings
+from logo_gen.config import get_settings
+from logo_gen.jobs import Job
+
+LOCAL_PREFIX = "local/"
 
 
-@dataclass
-class GeneratedLogo:
-    path: Path
-    prompt: str
-    concept: str
-    model: str
-    seed: int | None
-    generation_time: float
+def is_local(model: str) -> bool:
+    return model.startswith(LOCAL_PREFIX)
 
 
-@dataclass
-class GenerationResult:
-    logos: list[GeneratedLogo] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
-    total_time: float = 0.0
+def _slug(model: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", model.lower()).strip("-")[:40]
 
 
-# ── Single-image (cloud) ──────────────────────────────────────
-
-async def _generate_cloud_one(
-    prompt: str,
-    concept: str,
-    model: str,
-    seed: int | None,
-    output_dir: Path,
-    reference_images: list[Path] | None,
-) -> list[GeneratedLogo]:
-    start = time.time()
-    try:
-        paths = await openrouter.generate_image(
-            prompt=prompt,
-            model=model,
-            seed=seed,
-            save_dir=output_dir,
-            reference_images=reference_images,
-        )
-        elapsed = time.time() - start
-        return [
-            GeneratedLogo(
-                path=p,
-                prompt=prompt,
-                concept=concept,
-                model=model,
-                seed=seed,
-                generation_time=elapsed,
-            )
-            for p in paths
-        ]
-    except Exception:
-        return [
-            GeneratedLogo(
-                path=Path("error"),
-                prompt=prompt,
-                concept=concept,
-                model=model,
-                seed=seed,
-                generation_time=time.time() - start,
-            )
-        ]
+def _save(data: bytes, media_type: str, model: str, seed: int | None) -> tuple[Path, str]:
+    paths.GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+    stem = f"{_slug(model)}_{int(time.time() * 1000)}_{uuid.uuid4().hex[:6]}"
+    if media_type == "image/svg+xml":
+        p = paths.GENERATED_DIR / f"{stem}.svg"
+        p.write_bytes(data)
+        return p, media_type
+    p = paths.GENERATED_DIR / f"{stem}.png"
+    with Image.open(io.BytesIO(data)) as im:
+        im.save(p, format="PNG")
+    return p, "image/png"
 
 
-# ── Batched (local) ──────────────────────────────────────────
-#
-# A local batched task generates len(seeds) images in a single
-# pipeline call via num_images_per_prompt. Far faster than serial calls
-# because the GPU schedules the work together.
-
-async def _generate_local_batch(
-    prompt: str,
-    concept: str,
-    model: str,
-    seeds: list[int],
-    output_dir: Path,
-) -> list[GeneratedLogo]:
-    from logo_gen.clients import local_diffusion
-
-    start = time.time()
-    try:
-        paths = await local_diffusion.generate_image(
-            prompt=prompt,
-            model=model,
-            seeds=seeds,
-            save_dir=output_dir,
-        )
-        elapsed = time.time() - start
-        per_image = elapsed / max(len(paths), 1)
-        return [
-            GeneratedLogo(
-                path=p,
-                prompt=prompt,
-                concept=concept,
-                model=model,
-                seed=s,
-                generation_time=per_image,
-            )
-            for p, s in zip(paths, seeds)
-        ]
-    except Exception:
-        elapsed = time.time() - start
-        return [
-            GeneratedLogo(
-                path=Path("error"),
-                prompt=prompt,
-                concept=concept,
-                model=model,
-                seed=s,
-                generation_time=elapsed,
-            )
-            for s in seeds
-        ]
+def _friendly(e: BaseException) -> str:
+    msg = getattr(e, "message", None) or str(e) or e.__class__.__name__
+    if "CUDA out of memory" in msg or "OutOfMemoryError" in e.__class__.__name__:
+        return "The GPU ran out of memory even one image at a time. Close other GPU apps or pick a smaller model."
+    return msg
 
 
-def _make_seeds(n: int) -> list[int]:
-    """Generate diverse seeds."""
-    return [random.randint(1, 2**31) for _ in range(n)]
+class AdaptiveLimiter:
+    """Caps parallel OpenRouter image requests.
+
+    Starts at the configured concurrency, halves it on a rate limit, and
+    grows back by one after a run of successes. Shared by all jobs, since
+    OpenRouter's limits are per account.
+    """
+
+    def __init__(self, limit: int) -> None:
+        self.max = limit
+        self.limit = limit
+        self.active = 0
+        self.streak = 0
+        self.cond = asyncio.Condition()
+
+    async def __aenter__(self) -> None:
+        async with self.cond:
+            await self.cond.wait_for(lambda: self.active < self.limit)
+            self.active += 1
+
+    async def __aexit__(self, *exc) -> None:
+        async with self.cond:
+            self.active -= 1
+            self.cond.notify_all()
+
+    def backoff(self) -> None:
+        self.limit = max(1, self.limit // 2)
+        self.streak = 0
+
+    async def success(self) -> None:
+        self.streak += 1
+        if self.limit < self.max and self.streak >= self.limit:
+            self.limit += 1
+            self.streak = 0
+            async with self.cond:
+                self.cond.notify_all()
 
 
-async def generate_logos(
+_limiter: AdaptiveLimiter | None = None
+
+
+def limiter() -> AdaptiveLimiter:
+    global _limiter
+    want = get_settings().cloud_concurrency
+    if _limiter is None or _limiter.max != want:
+        _limiter = AdaptiveLimiter(want)
+    return _limiter
+
+
+def plan(models: list[str], prompts: list[dict], per_prompt: int) -> tuple[dict[str, tuple[list[dict], int]], list[str]]:
+    """Apply the per-model caps. Returns {model: (prompts, images per prompt)} and notes on what was cut."""
+    s = get_settings()
+    out, notes = {}, []
+    for m in models:
+        cap = s.cap_for(m)
+        ps, per = prompts, per_prompt
+        if len(ps) * per > cap:
+            per = max(1, cap // len(ps))
+            if len(ps) * per > cap:
+                ps = ps[:cap]
+            notes.append(f"{m}: capped at {cap} images per request (Settings, Limits)")
+        out[m] = (ps, per)
+    return out, notes
+
+
+async def run(
+    job: Job,
     prompts: list[dict],
     models: list[str] | None = None,
-    seeds_per_prompt: int | None = None,
-    output_dir: Path | None = None,
-    progress_callback=None,
-    reference_images: list[Path] | None = None,
-) -> GenerationResult:
-    """Generate logos from a list of prompt dicts across models and seeds.
+    images_per_prompt: int | None = None,
+    references: list[Path] | None = None,
+    chat_id: str | None = None,
+    parent_id: str | None = None,
+) -> None:
+    s = get_settings()
+    models = [m for m in (models or s.image_models) if m]
+    if not models:
+        raise ValueError("No image models selected. Pick at least one in Settings or the model picker.")
+    job.chat_id = chat_id
+    per_prompt = max(1, int(images_per_prompt or s.images_per_prompt))
+    work, notes = plan(models, prompts, per_prompt)
+    job.notes.extend(notes)
+    refs = [
+        (p.read_bytes(), "image/png" if p.suffix.lower() == ".png" else "image/jpeg")
+        for p in (references or []) if p.exists()
+    ]
 
-    Local models batch via num_images_per_prompt (a single pipeline
-    call produces many images). Cloud models stay single-image but run
-    concurrently across a 3-wide semaphore. The two pools have separate
-    semaphores so a local pipeline can be churning while cloud calls
-    run in parallel.
-
-    Tasks are scheduled model-first so the local pipeline (which
-    unloads the previous one to free VRAM) doesn't thrash between
-    models.
-    """
-    models = models or settings.image_models
-    seeds_per_prompt = seeds_per_prompt or settings.images_per_model
-    output_dir = Path(output_dir or settings.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    start = time.time()
-    result = GenerationResult()
-
-    # Build tasks. Each entry is either:
-    #   ("local", prompt, concept, model, [seed, seed, ...])  – one batched call
-    #   ("cloud", prompt, concept, model, seed)               – one single call
-    local_tasks: list[tuple] = []
-    cloud_tasks: list[tuple] = []
-
-    # Iterate models first so all of model A runs before any of model B.
-    # Each entry in `models` may include an optional ":N" suffix that
-    # overrides batch_cap for local models (e.g. "zimage-turbo:8").
-    # Cloud models ignore the suffix — they don't batch.
-    for spec in models:
-        model, override = parse_model_spec(spec)
-        local = is_local_model(model)
-        if local:
-            from logo_gen.clients import local_diffusion
-            default_cap = local_diffusion.get_max_batch(model)
-            batch_cap = override if override is not None else default_cap
-        else:
-            batch_cap = 1
-
-        for prompt_data in prompts:
-            prompt_text = prompt_data.get("prompt", "")
-            concept = prompt_data.get("concept", "")
-            seeds = _make_seeds(seeds_per_prompt)
-
-            if local:
-                # Chunk seeds into max_batch-sized groups.
-                for i in range(0, len(seeds), batch_cap):
-                    chunk = seeds[i : i + batch_cap]
-                    local_tasks.append(("local", prompt_text, concept, model, chunk))
-            else:
-                for seed in seeds:
-                    cloud_tasks.append(("cloud", prompt_text, concept, model, seed))
-
-    total_images = sum(len(t[4]) for t in local_tasks) + len(cloud_tasks)
-    if progress_callback:
-        progress_callback(0, total_images, f"Starting {total_images} images...")
-
-    # Separate semaphores: cloud (3-wide) doesn't queue behind local.
+    total = sum(len(ps) * per for ps, per in work.values())
+    job.progress(done=0, total=total, message=f"Generating {total} images")
     local_sem = asyncio.Semaphore(1)
-    cloud_sem = asyncio.Semaphore(3)
-    completed = {"n": 0}
 
-    def _bump(by: int, message: str) -> None:
-        completed["n"] += by
-        if progress_callback:
-            progress_callback(completed["n"], total_images, message)
-
-    async def run_local(args: tuple) -> list[GeneratedLogo]:
-        _, prompt_text, concept, model, seeds = args
-        async with local_sem:
-            if progress_callback:
-                progress_callback(
-                    completed["n"],
-                    total_images,
-                    f"{model}: batch of {len(seeds)}",
-                )
-            logos = await _generate_local_batch(
-                prompt_text, concept, model, seeds, output_dir,
-            )
-            _bump(len(seeds), f"{model}: {completed['n']}/{total_images}")
-            return logos
-
-    async def run_cloud(args: tuple) -> list[GeneratedLogo]:
-        _, prompt_text, concept, model, seed = args
-        async with cloud_sem:
-            if progress_callback:
-                progress_callback(
-                    completed["n"],
-                    total_images,
-                    f"{model} (seed {seed})",
-                )
-            logos = await _generate_cloud_one(
-                prompt_text, concept, model, seed, output_dir, reference_images,
-            )
-            _bump(1, f"{model}: {completed['n']}/{total_images}")
-            return logos
-
-    coros = [run_local(t) for t in local_tasks] + [run_cloud(t) for t in cloud_tasks]
-    results = await asyncio.gather(*coros, return_exceptions=True)
-
-    for r in results:
-        if isinstance(r, Exception):
-            result.errors.append(str(r))
-        elif isinstance(r, list):
-            for logo in r:
-                if logo.path != Path("error"):
-                    result.logos.append(logo)
-                else:
-                    result.errors.append(f"Failed: {logo.model} seed={logo.seed}")
-
-    result.total_time = time.time() - start
-
-    if progress_callback:
-        progress_callback(
-            total_images,
-            total_images,
-            f"Done! {len(result.logos)} logos in {result.total_time:.1f}s",
+    def record(img_path: Path, media_type: str, model: str, prompt: dict, seed: int | None, cost: float, took: float) -> None:
+        img = library.add_image(
+            img_path, "generated",
+            job_id=job.id, chat_id=chat_id, parent_id=parent_id,
+            prompt=prompt.get("prompt", ""), concept=prompt.get("concept", ""), style=prompt.get("style", ""),
+            model=model, seed=seed, media_type=media_type, cost=cost, gen_time=round(took, 2),
         )
+        job.image_ids.append(img["id"])
 
-    return result
+    async def cloud(model: str, prompt: dict, per: int) -> None:
+        remaining = per
+        info = await openrouter.model_info(model) or {}
+        max_n = max(1, int(info.get("max_n") or 1))
+        lim = limiter()
+        attempt = 0
+        while remaining > 0 and not job.cancelled:
+            n = min(remaining, max_n)
+            seed = random.randint(1, 2**31 - 1) if info.get("supports_seed") else None
+            t0 = time.time()
+            try:
+                async with lim:
+                    results, usage = await openrouter.generate_images(
+                        prompt["prompt"], model, n=n, seed=seed,
+                        aspect_ratio=s.aspect_ratio, transparent=s.transparent_background,
+                        references=refs or None,
+                    )
+            except openrouter.OpenRouterError as e:
+                delay = openrouter.retry_delay(e, attempt)
+                if delay is not None and attempt < 4:
+                    attempt += 1
+                    lim.backoff()
+                    job.message = f"{model}: {e.kind.replace('_', ' ')}, retrying in {int(delay)}s"
+                    await asyncio.sleep(delay)
+                    continue
+                job.errors.append(f"{model}: {_friendly(e)}")
+                job.done += remaining
+                return
+            except Exception as e:  # noqa: BLE001
+                job.errors.append(f"{model}: {_friendly(e)}")
+                job.done += remaining
+                return
+            attempt = 0
+            await lim.success()
+            credits, byok = openrouter.usage_cost(usage)
+            got = min(len(results), remaining)
+            job.add_cost("image", {"credits": credits, "byok": byok, "model": model}, images=got)
+            took = time.time() - t0
+            per_image_cost = (credits + byok) / max(len(results), 1)
+            for r in results[:remaining]:
+                p, mt = await asyncio.to_thread(_save, r.data, r.media_type, model, seed)
+                record(p, mt, model, prompt, seed, per_image_cost, took)
+            got = got or n
+            remaining -= got
+            job.done += got
+            job.message = f"{job.done}/{job.total} done"
 
+    async def local(model: str, ps: list[dict], per: int) -> None:
+        """All images for one local model, batched across directions by the saved profile."""
+        from logo_gen.local_models import diffusion
+        from logo_gen.local_models.registry import MODELS
 
-async def quick_generate(
-    concept: str,
-    models: list[str] | None = None,
-    n_variations: int = 2,
-    output_dir: Path | None = None,
-    progress_callback=None,
-) -> GenerationResult:
-    """Quick generation: enhance prompt with LLM, then generate images.
+        model_id = model.removeprefix(LOCAL_PREFIX)
+        spec = MODELS.get(model_id)
+        batch = max(1, int(s.local_batch.get(model_id) or (spec.max_batch if spec else 1)))
+        items = [(p, random.randint(1, 2**31 - 1)) for p in ps for _ in range(per)]
+        name = spec.name if spec else model_id
+        async with local_sem:
+            for i in range(0, len(items), batch):
+                if job.cancelled:
+                    return
+                chunk = items[i : i + batch]
+                t0 = time.time()
 
-    Convenience function that handles the full pipeline.
-    """
-    from logo_gen.prompt_engine import generate_variations
+                def on_step(step: int, total: int, size: int = len(chunk)) -> None:
+                    job.message = f"{name}: batch of {size}, step {step}/{total}"
 
-    if progress_callback:
-        progress_callback(0, 1, "Enhancing prompt with AI...")
+                def on_status(msg: str) -> None:
+                    job.message = msg
+                    if "out of memory" in msg.lower() and msg not in job.notes:
+                        job.notes.append(msg)
 
-    prompts = await generate_variations(concept, n=4)
+                try:
+                    images = await asyncio.to_thread(
+                        diffusion.generate, model_id, [p["prompt"] for p, _ in chunk], [sd for _, sd in chunk],
+                        on_step, on_status, lambda: job.cancelled,
+                    )
+                except Exception as e:  # noqa: BLE001
+                    job.errors.append(f"{model}: {_friendly(e)}")
+                    job.done += len(items) - i
+                    return
+                took = (time.time() - t0) / max(len(images), 1)
+                for im, (prompt, seed) in zip(images, chunk):
+                    buf = io.BytesIO()
+                    im.save(buf, format="PNG")
+                    p, mt = await asyncio.to_thread(_save, buf.getvalue(), "image/png", model, seed)
+                    record(p, mt, model, prompt, seed, 0.0, took)
+                job.local_images += len(images)
+                library.add_cost("image", model=model, job_id=job.id, chat_id=chat_id, images=len(images), local=True)
+                job.done += len(chunk)
 
-    return await generate_logos(
-        prompts=prompts,
-        models=models,
-        seeds_per_prompt=n_variations,
-        output_dir=output_dir,
-        progress_callback=progress_callback,
-    )
+    coros = []
+    for m, (ps, per) in work.items():
+        if is_local(m):
+            coros.append(local(m, ps, per))
+        else:
+            coros.extend(cloud(m, p, per) for p in ps)
+    await asyncio.gather(*coros)
+    n = len(job.image_ids)
+    job.result.update({"images": n, "errors": len(job.errors)})
+    if n == 0 and job.errors and not job.cancelled:
+        job.status = "error"
+        job.message = job.errors[0]
+    else:
+        job.message = f"{n} image{'s' if n != 1 else ''}" + (f", {len(job.errors)} failed" if job.errors else "")

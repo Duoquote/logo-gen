@@ -1,0 +1,37 @@
+#!/bin/sh
+# Start logo-gen: sets up uv, Python packages and the frontend, then runs the server.
+# Usage: ./logo-gen [--port 7860] [--host 0.0.0.0] [--with-local] [--dev]
+set -e
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) WIN=1; UV_LOCAL="$ROOT/.tools/uv/uv.exe" ;;
+  *) WIN=0; UV_LOCAL="$ROOT/.tools/uv/uv" ;;
+esac
+
+if command -v uv >/dev/null 2>&1; then
+  UV="$(command -v uv)"
+elif [ -x "$UV_LOCAL" ]; then
+  UV="$UV_LOCAL"
+else
+  echo "  uv not found, installing it into .tools/uv (nothing outside this folder is changed)"
+  mkdir -p "$ROOT/.tools/uv"
+  if [ "$WIN" = 1 ]; then
+    powershell -NoProfile -ExecutionPolicy Bypass -Command \
+      "\$env:UV_UNMANAGED_INSTALL='$(cygpath -w "$ROOT/.tools/uv")'; irm https://astral.sh/uv/install.ps1 | iex"
+  elif command -v curl >/dev/null 2>&1; then
+    curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL="$ROOT/.tools/uv" sh
+  else
+    wget -qO- https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL="$ROOT/.tools/uv" sh
+  fi
+  UV="$UV_LOCAL"
+fi
+
+# A project-local uv keeps its Python downloads and cache in the project too.
+if [ "$UV" = "$UV_LOCAL" ]; then
+  export UV_PYTHON_INSTALL_DIR="$ROOT/.tools/python"
+  export UV_CACHE_DIR="$ROOT/.tools/uv-cache"
+fi
+
+cd "$ROOT"
+exec "$UV" run --quiet --no-project --python ">=3.12,<3.14" "$ROOT/scripts/launch.py" --uv "$UV" "$@"

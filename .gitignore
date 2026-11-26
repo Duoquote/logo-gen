@@ -1,25 +1,24 @@
-# Python-generated files
+# Python
 __pycache__/
 *.py[oc]
 build/
 dist/
 wheels/
 *.egg-info
-
-# Virtual environments
 .venv
 
-# Environment
+# Secrets: API keys live here, never commit it
 .env
+.env.*
 
-# Output
+# Local state written by the app and the launcher
+data/
 output/
-
-# Local model cache
 .models/
+.tools/
+.scaffold/
 
 # Frontend
 node_modules/
 *.tsbuildinfo
 frontend/dist/
-frontend/bun.lock

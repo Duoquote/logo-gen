@@ -1,306 +1,283 @@
-"""Logo prompt enhancement engine using LLM via OpenRouter or local Ollama."""
+"""Prompt writing: the chat designer, one-shot directions, and variations."""
 
 from __future__ import annotations
 
 import base64
 import json
+import re
 from pathlib import Path
+from typing import AsyncIterator
 
-from logo_gen.clients import openrouter
-from logo_gen.clients import local_llm
-from logo_gen.clients import claude_cli
-from logo_gen.config import settings
+from logo_gen.clients import claude_cli, local_llm, openrouter
+from logo_gen.config import get_settings
 
+PROMPT_RULES = """\
+How to write an image prompt:
+- 1 to 3 plain sentences, no keyword lists. Lead with the logo type and the symbol.
+- Describe the symbol in concrete shapes ("a fox head built from three triangles", \
+not "a dynamic fox").
+- Name the style (flat vector, geometric, line mark, negative space, soft gradient, etc.).
+- Give 1 to 3 colors by name and hex, e.g. "deep teal #0F766E".
+- Say how it sits: centered, generous padding, on a plain white background.
+- It is an icon, so no text, letters or wordmarks unless the user asks for them. \
+Say "no text" once; do not pile on negative phrases.
+- Keep it simple enough to read at 32 px."""
 
-def _use_local_llm() -> bool:
-    """Check if the configured LLM model is a local model."""
-    return settings.llm_model.startswith("local/")
+DESIGNER_SYSTEM = f"""\
+You are a senior brand designer who also writes prompts for image models. \
+You help the user find a logo mark (an icon, not a wordmark) through a short conversation.
 
+How to talk:
+- Be brief and concrete. No flattery, no filler.
+- If the brief is thin, ask at most 3 short questions in one message (what the thing is, \
+the feeling, colors or constraints). If the user wants to skip questions, go straight to directions.
+- When you have enough, or the user asks to generate, propose distinct directions. \
+Each direction should be a different idea, not the same idea in four colors.
+- When the user gives feedback on results, adjust and propose new directions.
+- If the user attaches reference images, the image model will see them too. Refer to \
+what to keep and what to change rather than describing the image from scratch.
 
-def _get_local_model() -> str:
-    """Extract the model name from the config (strip 'local/' prefix)."""
-    return settings.llm_model.removeprefix("local/")
+{PROMPT_RULES}
 
-SYSTEM_PROMPT = """\
-You are an expert logo designer and AI image prompt engineer. Your job is to \
-help users create stunning, unique logo designs through conversation.
-
-IMPORTANT RULES:
-- Logos must NEVER contain any text, letters, words, or typography
-- Focus on iconic symbols, abstract marks, geometric shapes, and visual metaphors
-- Every logo should be unique, memorable, and scalable
-- Designs should work as brand icons (think app icons, favicons, brand marks)
-
-Your expertise includes:
-- Logo design principles: simplicity, memorability, scalability, versatility
-- Visual metaphors: translating brand concepts into iconic imagery
-- Color theory: complementary, analogous, triadic schemes; color psychology
-- Composition: symmetry, golden ratio, negative space, geometric construction
-- Style knowledge: minimalist, geometric, abstract, gradient, flat, 3D, organic
-
-REFERENCE IMAGES:
-When the user attaches reference images, these SAME images will also be sent \
-directly to the image generation model alongside your prompts. Your prompts \
-should be written with this in mind:
-- Reference the visual elements, colors, shapes, or mood from the attached images
-- Write prompts that COMPLEMENT the reference images rather than fully re-describe them
-- You can say things like "inspired by the attached reference" or "building on the \
-  style shown" since the image model will see the same images
-- Still be specific about what you want changed, added, or adapted from the reference
-
-CONVERSATION APPROACH:
-1. Ask about the brand (name, industry, values, personality, audience)
-2. Understand the desired feeling/mood
-3. Suggest visual directions and concepts
-4. When ready, generate detailed image prompts
-
-When the user wants to generate, respond with a JSON block containing prompts. \
-Format your response as normal text with the JSON at the end in a code block:
+When you propose directions, write a one-line summary of each, then end your reply \
+with exactly one fenced JSON block in this form (4 directions unless the user asks \
+for a different number):
 
 ```json
-{
-  "prompts": [
-    {
-      "prompt": "detailed image generation prompt here",
-      "concept": "brief description of the concept direction",
-      "style": "style category"
-    }
-  ]
-}
+{{"prompts": [{{"concept": "short name", "style": "style in 2-4 words", "prompt": "the image prompt"}}]}}
 ```
 
-Each prompt should be detailed and include:
-- Core visual element and concept
-- Style (minimalist, geometric, abstract, organic, etc.)
-- Color palette with specific colors
-- Composition and layout details
-- Quality modifiers: "professional logo design, clean vector style, centered, white background"
-- MUST include: "no text, no letters, no words, no typography"
+Do not put a JSON block in replies that only ask questions."""
 
-Generate 4-6 diverse prompt variations exploring different visual directions."""
+DIRECTIONS_SYSTEM = f"""\
+You are a senior brand designer writing prompts for image models. Given a short brief, \
+return distinct logo mark directions. Each one must be a different idea (different \
+symbol or construction), not a recolor.
 
-ENHANCE_SYSTEM = """\
-You are an expert at writing prompts for AI image generation models. \
-Given a logo concept description, create a highly detailed, optimized prompt \
-that will produce a stunning logo design.
+{PROMPT_RULES}"""
 
-Rules:
-- The prompt MUST specify: no text, no letters, no words, no typography
-- Include style, colors, composition, mood
-- Add quality boosters: "professional logo design, clean, vector style, high quality"
-- Specify "centered on solid white background"
-- Be specific about shapes, geometry, and visual elements
-- Keep it under 200 words
+VARIATION_SYSTEM = f"""\
+You are a senior brand designer. The user picked a logo and wants variations of it. \
+Keep the core idea of the original prompt and change one thing per variation: \
+proportions, line weight, color palette, level of detail, or a small twist on the symbol. \
+If the user gave an instruction, follow it in every variation.
 
-Return ONLY the prompt text, nothing else."""
+{PROMPT_RULES}"""
 
+PROMPTS_SCHEMA = {
+    "name": "logo_prompts",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "prompts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "concept": {"type": "string"},
+                        "style": {"type": "string"},
+                        "prompt": {"type": "string"},
+                    },
+                    "required": ["concept", "style", "prompt"],
+                    "additionalProperties": False,
+                },
+            }
+        },
+        "required": ["prompts"],
+        "additionalProperties": False,
+    },
+}
 
-def _image_to_data_uri(image_path: str | Path) -> str:
-    """Convert an image file to a base64 data URI."""
-    p = Path(image_path)
-    suffix = p.suffix.lower().lstrip(".")
-    mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "webp": "webp", "gif": "gif"}
-    mime_type = f"image/{mime.get(suffix, 'png')}"
-    b64 = base64.b64encode(p.read_bytes()).decode()
-    return f"data:{mime_type};base64,{b64}"
+# ── Parsing ──────────────────────────────────────────────────────────
 
-
-def _build_user_content(text: str, image_paths: list[str | Path] | None = None) -> str | list[dict]:
-    """Build a user message content field, optionally with images.
-
-    Returns a plain string if no images, or a multimodal content array
-    following the OpenAI vision format.
-    """
-    if not image_paths:
-        return text
-
-    content: list[dict] = [{"type": "text", "text": text}]
-    for img in image_paths:
-        data_uri = _image_to_data_uri(img)
-        content.append({
-            "type": "image_url",
-            "image_url": {"url": data_uri},
-        })
-    return content
+_FENCE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.S)
 
 
-async def _chat(messages: list[dict], temperature: float = 0.7) -> str:
-    """Route chat to Claude CLI, local, or cloud LLM based on config."""
-    if settings.use_claude_cli:
-        return await claude_cli.chat(messages, temperature=temperature)
-    if _use_local_llm():
-        return await local_llm.chat(messages, model=_get_local_model(), temperature=temperature)
-    return await openrouter.chat(messages, temperature=temperature)
+def _clean_prompts(items: object) -> list[dict]:
+    out = []
+    if not isinstance(items, list):
+        return out
+    for it in items:
+        if isinstance(it, dict) and str(it.get("prompt") or "").strip():
+            out.append({
+                "concept": str(it.get("concept") or "").strip() or "Direction",
+                "style": str(it.get("style") or "").strip(),
+                "prompt": str(it["prompt"]).strip(),
+            })
+    return out
 
 
-async def _chat_stream(messages: list[dict], temperature: float = 0.7):
-    """Route streaming chat to Claude CLI, local, or cloud LLM based on config."""
-    if settings.use_claude_cli:
-        async for token in claude_cli.chat_stream(messages, temperature=temperature):
-            yield token
-        return
-    if _use_local_llm():
-        async for token in local_llm.chat_stream(messages, model=_get_local_model(), temperature=temperature):
-            yield token
-    else:
-        async for token in openrouter.chat_stream(messages, temperature=temperature):
-            yield token
-
-
-async def enhance_prompt(concept: str, images: list[str | Path] | None = None) -> str:
-    """Take a simple concept and return an enhanced image generation prompt."""
-    messages = [
-        {"role": "system", "content": ENHANCE_SYSTEM},
-        {"role": "user", "content": _build_user_content(
-            f"Create a logo prompt for: {concept}", images,
-        )},
-    ]
-    return await _chat(messages, temperature=0.8)
-
-
-async def generate_variations(
-    concept: str, n: int = 5, images: list[str | Path] | None = None,
-) -> list[dict]:
-    """Generate multiple prompt variations from a concept.
-
-    Returns list of dicts with 'prompt', 'concept', 'style' keys.
-    """
-    text = (
-        f"I want to generate logos for this concept: {concept}\n\n"
-        f"Generate exactly {n} diverse prompt variations. "
-        "Each should explore a completely different visual direction. "
-        "Return them in the JSON format specified."
-    )
-    if images:
-        text += (
-            "\n\nI've attached reference image(s) for inspiration. "
-            "Use them to inform the visual direction, color palette, and mood."
-        )
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": _build_user_content(text, images)},
-    ]
-    response = await _chat(messages, temperature=0.9)
-
-    # Extract JSON from response
-    try:
-        # Try to find JSON in code block
-        if "```json" in response:
-            json_str = response.split("```json")[1].split("```")[0].strip()
-        elif "```" in response:
-            json_str = response.split("```")[1].split("```")[0].strip()
-        else:
-            json_str = response.strip()
-
-        data = json.loads(json_str)
-        if isinstance(data, dict) and "prompts" in data:
-            return data["prompts"]
+def parse_prompts(text: str) -> list[dict]:
+    """Find a {"prompts": [...]} object in a reply. Uses the last fenced block."""
+    candidates = _FENCE.findall(text)
+    if not candidates:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end > start:
+            candidates = [text[start : end + 1]]
+    for raw in reversed(candidates):
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict):
+            prompts = _clean_prompts(data.get("prompts"))
+            if prompts:
+                return prompts
         if isinstance(data, list):
-            return data
-    except (json.JSONDecodeError, IndexError, KeyError):
-        pass
-
-    # Fallback: create a single enhanced prompt
-    enhanced = await enhance_prompt(concept)
-    return [{"prompt": enhanced, "concept": concept, "style": "auto"}]
+            prompts = _clean_prompts(data)
+            if prompts:
+                return prompts
+    return []
 
 
-class ChatSession:
-    """Maintains conversation state for interactive logo design."""
+def strip_prompt_block(text: str) -> str:
+    """Remove the JSON block from a reply for display."""
+    return _FENCE.sub("", text).strip()
 
-    def __init__(self) -> None:
-        self.messages: list[dict] = [
-            {"role": "system", "content": SYSTEM_PROMPT}
-        ]
-        self.prompts: list[dict] = []
-        self.reference_images: list[Path] = []
 
-    def seed_history(self, history: list[dict]) -> None:
-        """Append prior turns from a serialized history list.
+# ── Messages ─────────────────────────────────────────────────────────
 
-        Each item is {"role": "user"|"assistant", "content": str, "images"?: list[str|Path]}.
-        Images that don't exist on disk are silently dropped — the text still
-        carries the semantic intent of the turn.
-        """
-        for turn in history:
-            role = turn.get("role")
-            if role not in ("user", "assistant"):
-                continue
-            text = turn.get("content") or ""
-            raw_images = turn.get("images") or []
-            existing = [Path(p) for p in raw_images if Path(p).exists()]
 
-            if role == "user" and existing:
-                content = _build_user_content(text, existing)
-                if isinstance(raw_images, list) and existing:
-                    # Track ref images across the session
-                    self.reference_images = list({*self.reference_images, *existing})
-            else:
-                content = text
+def _data_uri(path: Path) -> str:
+    suffix = path.suffix.lower().lstrip(".")
+    mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "webp": "webp", "gif": "gif"}.get(suffix, "png")
+    return f"data:image/{mime};base64,{base64.b64encode(path.read_bytes()).decode()}"
 
-            self.messages.append({"role": role, "content": content})
 
-    async def send(
-        self, user_message: str, images: list[str | Path] | None = None,
-    ) -> str:
-        """Send a message and get the assistant's response (streaming)."""
-        if images:
-            self.reference_images = [Path(p) for p in images]
-        content = _build_user_content(user_message, images)
-        self.messages.append({"role": "user", "content": content})
+def user_content(text: str, images: list[Path] | None) -> str | list[dict]:
+    images = [p for p in (images or []) if p.exists()]
+    if not images:
+        return text
+    return [{"type": "text", "text": text}] + [
+        {"type": "image_url", "image_url": {"url": _data_uri(p)}} for p in images
+    ]
 
-        full_response = ""
-        async for token in _chat_stream(self.messages):
-            full_response += token
 
-        self.messages.append({"role": "assistant", "content": full_response})
+def build_history(messages: list[dict], resolve, vision: bool) -> list[dict]:
+    """Turn stored chat messages into LLM messages.
 
-        # Check if response contains generation prompts
-        if "```json" in full_response:
-            try:
-                json_str = full_response.split("```json")[1].split("```")[0]
-                data = json.loads(json_str.strip())
-                if isinstance(data, dict) and "prompts" in data:
-                    self.prompts = data["prompts"]
-            except (json.JSONDecodeError, IndexError, KeyError):
-                pass
+    Assistant turns get their prompt directions re-attached so the model can
+    refer to "direction 2" later.
+    """
+    out: list[dict] = [{"role": "system", "content": DESIGNER_SYSTEM}]
+    for m in messages:
+        if m["role"] == "user":
+            imgs = [resolve(p) for p in m.get("images") or []] if vision else []
+            text = m["content"]
+            if m.get("images") and not vision:
+                text += "\n\n(The user attached reference images, but this model cannot see images.)"
+            out.append({"role": "user", "content": user_content(text, imgs)})
+        else:
+            text = m["content"]
+            if m.get("prompts"):
+                text += "\n\n```json\n" + json.dumps({"prompts": m["prompts"]}) + "\n```"
+            out.append({"role": "assistant", "content": text})
+    return out
 
-        return full_response
 
-    async def stream(
-        self, user_message: str, images: list[str | Path] | None = None,
-    ):
-        """Send a message and yield response tokens as they arrive."""
-        if images:
-            self.reference_images = [Path(p) for p in images]
-        content = _build_user_content(user_message, images)
-        self.messages.append({"role": "user", "content": content})
+# ── Backends ─────────────────────────────────────────────────────────
 
-        full_response = ""
-        async for token in _chat_stream(self.messages):
-            full_response += token
-            yield token
 
-        self.messages.append({"role": "assistant", "content": full_response})
+def backend_label() -> str:
+    s = get_settings()
+    if s.llm_backend == "claude-cli":
+        return "Claude CLI"
+    if s.llm_backend == "local":
+        return f"local/{s.local_llm_model}"
+    return s.chat_model
 
-        # Extract prompts if present
-        if "```json" in full_response:
-            try:
-                json_str = full_response.split("```json")[1].split("```")[0]
-                data = json.loads(json_str.strip())
-                if isinstance(data, dict) and "prompts" in data:
-                    self.prompts = data["prompts"]
-            except (json.JSONDecodeError, IndexError, KeyError):
-                pass
 
-    def has_prompts(self) -> bool:
-        return len(self.prompts) > 0
+async def chat_supports_images() -> bool:
+    s = get_settings()
+    if s.llm_backend != "openrouter":
+        return s.llm_backend == "local"  # assume a local vision model; it will error if not
+    info = await openrouter.model_info(s.chat_model) or {}
+    return "image" in (info.get("input_modalities") or [])
 
-    def get_prompts(self) -> list[dict]:
-        return self.prompts
 
-    def get_reference_images(self) -> list[Path]:
-        return self.reference_images
+async def stream_reply(messages: list[dict]) -> AsyncIterator[dict]:
+    """Yield {"type": "token"|"reasoning"|"usage", ...} from the configured backend."""
+    s = get_settings()
+    if s.llm_backend == "claude-cli":
+        async for tok in claude_cli.chat_stream(messages):
+            yield {"type": "token", "content": tok}
+    elif s.llm_backend == "local":
+        async for tok in local_llm.chat_stream(messages, model=s.local_llm_model, temperature=0.7):
+            yield {"type": "token", "content": tok}
+    else:
+        async for ev in openrouter.chat_stream(
+            messages, model=s.chat_model, temperature=0.7, reasoning_effort=s.reasoning_effort
+        ):
+            yield ev
 
-    def reset(self) -> None:
-        self.__init__()
+
+def cost_record(usage: dict | None, model: str) -> dict:
+    """Normalize a usage object into the fields library.add_cost takes."""
+    usage = usage or {}
+    credits, byok = openrouter.usage_cost(usage)
+    return {
+        "credits": credits,
+        "byok": byok,
+        "model": model,
+        "generation_id": usage.get("id"),
+        "prompt_tokens": usage.get("prompt_tokens") or 0,
+        "completion_tokens": usage.get("completion_tokens") or 0,
+    }
+
+
+async def _complete(messages: list[dict], structured: bool) -> tuple[str, dict]:
+    """Returns (reply, cost record). Local backends cost nothing."""
+    s = get_settings()
+    if s.llm_backend == "claude-cli":
+        return await claude_cli.chat(messages), cost_record(None, "claude-cli")
+    if s.llm_backend == "local":
+        return await local_llm.chat(messages, model=s.local_llm_model, temperature=0.9), cost_record(None, backend_label())
+    text, usage = await openrouter.chat(
+        messages,
+        model=s.chat_model,
+        temperature=0.9,
+        reasoning_effort=s.reasoning_effort,
+        json_schema=PROMPTS_SCHEMA if structured else None,
+    )
+    return text, cost_record(usage, s.chat_model)
+
+
+_JSON_TAIL = (
+    'Return only JSON in this form: {"prompts": [{"concept": "...", "style": "...", "prompt": "..."}]}'
+)
+
+
+async def directions(brief: str, n: int, images: list[Path] | None = None) -> tuple[list[dict], dict]:
+    """One-shot: brief -> n prompt directions."""
+    text = f"Brief: {brief}\n\nWrite {n} directions. {_JSON_TAIL}"
+    if images:
+        text += "\nThe attached images are references; the image model will see them too."
+    vision = await chat_supports_images()
+    messages = [
+        {"role": "system", "content": DIRECTIONS_SYSTEM},
+        {"role": "user", "content": user_content(text, images if vision else None)},
+    ]
+    reply, cost = await _complete(messages, structured=True)
+    prompts = parse_prompts(reply)
+    if not prompts:
+        raise ValueError("The chat model did not return usable prompts. Try again or pick another chat model.")
+    return prompts[:n], cost
+
+
+async def variations(original: dict, n: int, instruction: str = "") -> tuple[list[dict], dict]:
+    """Close variations of one prompt."""
+    text = (
+        f"Original prompt: {original.get('prompt')}\n"
+        f"Concept: {original.get('concept') or ''}\nStyle: {original.get('style') or ''}\n"
+    )
+    if instruction:
+        text += f"Instruction: {instruction}\n"
+    text += f"\nWrite {n} variations. {_JSON_TAIL}"
+    messages = [{"role": "system", "content": VARIATION_SYSTEM}, {"role": "user", "content": text}]
+    reply, cost = await _complete(messages, structured=True)
+    prompts = parse_prompts(reply)
+    if not prompts:
+        raise ValueError("The chat model did not return usable prompts.")
+    return prompts[:n], cost

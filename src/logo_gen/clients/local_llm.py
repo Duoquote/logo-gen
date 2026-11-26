@@ -1,118 +1,89 @@
-"""Local/custom LLM client via any OpenAI-compatible API.
-
-Works with Ollama, LM Studio, vLLM, text-generation-webui, or any server
-that implements the OpenAI chat completions API.
-
-Configure via settings or .env:
-  LOCAL_LLM_BASE_URL=http://localhost:11434/v1   # Ollama
-  LOCAL_LLM_BASE_URL=http://localhost:1234/v1    # LM Studio
-  LOCAL_LLM_BASE_URL=http://localhost:8000/v1    # vLLM
-  LOCAL_LLM_API_KEY=sk-...                       # optional, for authenticated APIs
-  LOCAL_LLM_MODEL=qwen3.5:9b                     # model name
-"""
+"""Local LLM through any OpenAI-compatible server (Ollama, LM Studio, vLLM, ...)."""
 
 from __future__ import annotations
 
 import json
+from typing import AsyncIterator
 
 import httpx
 
-from logo_gen.config import settings
+from logo_gen.config import get_settings
+
+
+class LocalLLMError(Exception):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
 
 
 def _base_url() -> str:
-    return settings.local_llm_base_url
+    return get_settings().local_llm_base_url.rstrip("/")
 
 
 def _headers() -> dict[str, str]:
     headers = {"Content-Type": "application/json"}
-    if settings.local_llm_api_key:
-        headers["Authorization"] = f"Bearer {settings.local_llm_api_key}"
+    key = get_settings().local_llm_api_key
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
     return headers
 
 
-async def chat(
-    messages: list[dict],
-    model: str | None = None,
-    temperature: float = 0.7,
-    response_format: dict | None = None,
-) -> str:
-    """Send a chat completion request and return the text response."""
-    model = model or settings.local_llm_model
-    payload: dict = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-    }
-    if response_format:
-        payload["response_format"] = response_format
-
-    async with httpx.AsyncClient(timeout=300) as client:
-        resp = await client.post(
-            f"{_base_url()}/chat/completions",
-            headers=_headers(),
-            json=payload,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-    return data["choices"][0]["message"]["content"]
+def _wrap(e: Exception) -> LocalLLMError:
+    if isinstance(e, httpx.ConnectError):
+        return LocalLLMError(f"Cannot reach the local LLM server at {_base_url()}. Is it running?")
+    if isinstance(e, httpx.HTTPStatusError):
+        body = e.response.text[:200] if e.response is not None else ""
+        return LocalLLMError(f"Local LLM server returned {e.response.status_code}: {body}")
+    return LocalLLMError(f"Local LLM error: {e}")
 
 
-async def chat_stream(
-    messages: list[dict],
-    model: str | None = None,
-    temperature: float = 0.7,
-):
-    """Stream chat completion tokens."""
-    model = model or settings.local_llm_model
+async def chat(messages: list[dict], model: str | None = None, temperature: float = 0.7) -> str:
+    payload = {"model": model or get_settings().local_llm_model, "messages": messages, "temperature": temperature}
+    try:
+        async with httpx.AsyncClient(timeout=300) as client:
+            resp = await client.post(f"{_base_url()}/chat/completions", headers=_headers(), json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPError as e:
+        raise _wrap(e) from e
+    return data["choices"][0]["message"]["content"] or ""
+
+
+async def chat_stream(messages: list[dict], model: str | None = None, temperature: float = 0.7) -> AsyncIterator[str]:
     payload = {
-        "model": model,
+        "model": model or get_settings().local_llm_model,
         "messages": messages,
         "temperature": temperature,
         "stream": True,
     }
-
-    async with httpx.AsyncClient(timeout=300) as client:
-        async with client.stream(
-            "POST",
-            f"{_base_url()}/chat/completions",
-            headers=_headers(),
-            json=payload,
-        ) as resp:
-            resp.raise_for_status()
-            async for line in resp.aiter_lines():
-                if not line.startswith("data: "):
-                    continue
-                chunk = line[6:]
-                if chunk.strip() == "[DONE]":
-                    break
-                try:
-                    data = json.loads(chunk)
-                    delta = data["choices"][0]["delta"].get("content", "")
+    try:
+        async with httpx.AsyncClient(timeout=300) as client:
+            async with client.stream("POST", f"{_base_url()}/chat/completions", headers=_headers(), json=payload) as resp:
+                if resp.status_code >= 400:
+                    await resp.aread()
+                    resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    chunk = line[5:].strip()
+                    if chunk == "[DONE]":
+                        break
+                    try:
+                        delta = json.loads(chunk)["choices"][0]["delta"].get("content", "")
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        continue
                     if delta:
                         yield delta
-                except (json.JSONDecodeError, KeyError, IndexError):
-                    continue
-
-
-async def is_available() -> bool:
-    """Check if the configured LLM endpoint is reachable."""
-    try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(f"{_base_url()}/models", headers=_headers())
-            return resp.status_code == 200
-    except (httpx.ConnectError, httpx.TimeoutException):
-        return False
+    except httpx.HTTPError as e:
+        raise _wrap(e) from e
 
 
 async def list_models() -> list[str]:
-    """List available models from the endpoint."""
+    """Models the local server reports. Empty if it is not reachable."""
     try:
-        async with httpx.AsyncClient(timeout=5) as client:
+        async with httpx.AsyncClient(timeout=3) as client:
             resp = await client.get(f"{_base_url()}/models", headers=_headers())
             resp.raise_for_status()
-            data = resp.json()
-            return [m["id"] for m in data.get("data", [])]
-    except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError):
+            return [m["id"] for m in resp.json().get("data", [])]
+    except (httpx.HTTPError, KeyError, ValueError):
         return []
