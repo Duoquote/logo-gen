@@ -196,7 +196,18 @@ async def list_local_models():
     if time.time() - _last_refresh > manager.REMOTE_TTL:
         _last_refresh = time.time()
         asyncio.create_task(manager.refresh_remote())
-    return {"models": manager.list_models(), "system": system.info(), "runtime": runtime.status()}
+    s = get_settings()
+    models = []
+    for m in manager.list_models():
+        spec = MODELS[m["id"]]
+        chosen = s.local_batch.get(spec.id)
+        models.append(m | {
+            "batch": chosen or spec.max_batch,
+            "batch_source": "calibrated" if chosen else "default",
+            "calibration": library.get_calibration(spec.id),
+            "cap": s.cap_for(m["ref"]),
+        })
+    return {"models": models, "system": system.info(), "runtime": runtime.status()}
 
 
 def _spec(model_id: str):
@@ -222,6 +233,37 @@ async def install_local_stack():
         asyncio.create_task(go())
         await asyncio.sleep(0.1)
     return runtime.status()
+
+
+@app.post("/api/local-models/{model_id}/calibrate")
+async def calibrate_local_model(model_id: str):
+    spec = _spec(model_id)
+    if not manager.is_installed(spec):
+        raise ValueError(f"Install {spec.name} first.")
+    if spec.support(system.device_kind()) == "no":
+        raise ValueError(f"{spec.name} cannot run on this machine.")
+    for j in jobs.list():
+        if j.kind == "calibrate" and j.status == "running":
+            raise ValueError("A speed test is already running.")
+    max_batch = min(get_settings().cap_for(f"local/{spec.id}"), 16)
+
+    async def fn(job):
+        from logo_gen.local_models import diffusion
+
+        def on_status(msg: str) -> None:
+            job.message = msg
+            if msg.startswith("Testing a batch of "):
+                job.done += 1
+
+        job.progress(done=0, total=len([b for b in (1, 2, 3, 4, 6, 8, 12, 16) if b <= max_batch]))
+        data = await asyncio.to_thread(diffusion.calibrate, spec.id, max_batch, on_status, lambda: job.cancelled)
+        library.save_calibration(spec.id, data)
+        job.result.update(data)
+        best = data["options"][0] if data["options"] else None
+        job.message = f"Fastest: batch of {best['batch']}, {best['per_image']} s per image" if best else "No batch size worked"
+        job.done = job.total
+
+    return jobs.start("calibrate", f"Speed test: {spec.name}", fn).to_dict()
 
 
 @app.post("/api/local-models/{model_id}/install")
@@ -354,7 +396,7 @@ async def quick_generate(body: QuickIn):
         if body.enhance:
             job.progress(message=f"Writing {count} directions with {prompt_engine.backend_label()}")
             prompts, cost = await prompt_engine.directions(brief, count, refs)
-            job.cost += cost
+            job.add_cost("prompts", cost)
         else:
             prompts = [{"prompt": brief, "concept": brief[:48], "style": ""}]
         job.result["prompts"] = prompts
@@ -396,8 +438,9 @@ async def variations(image_id: str, body: VariationIn):
             prompts, per = [source], count
         else:
             job.progress(message="Writing variations")
+            job.chat_id = img.get("chat_id")
             prompts, cost = await prompt_engine.variations(source, count, body.instruction)
-            job.cost += cost
+            job.add_cost("prompts", cost)
             per = 1
         job.result["prompts"] = prompts
         job.result["source_id"] = image_id
@@ -433,7 +476,7 @@ async def get_chat(chat_id: str):
     chat = library.get_chat(chat_id)
     if not chat:
         raise _not_found("Chat")
-    return chat
+    return chat | {"spend": library.spend(chat_id=chat_id)}
 
 
 @app.patch("/api/chats/{chat_id}")
@@ -478,7 +521,9 @@ async def send_message(chat_id: str, body: MessageIn):
                 elif ev["type"] == "reasoning":
                     yield _sse({"type": "reasoning", "content": ev.get("content", "")})
                 elif ev["type"] == "usage":
-                    yield _sse({"type": "usage", "cost": ev.get("cost")})
+                    rec = prompt_engine.cost_record(ev, get_settings().chat_model)
+                    library.add_cost("chat", chat_id=chat_id, **rec)
+                    yield _sse({"type": "usage", "credits": rec["credits"], "byok": rec["byok"]})
             prompts = prompt_engine.parse_prompts(reply)
             shown = prompt_engine.strip_prompt_block(reply) if prompts else reply
             mid = library.add_message(chat_id, "assistant", shown, prompts=prompts)
@@ -517,12 +562,29 @@ async def get_image(image_id: str):
     if not img:
         raise _not_found("Image")
     parent = library.get_image(img["parent_id"]) if img.get("parent_id") else None
+    library.with_primary([img])
     return img | {"children": library.children(image_id), "parent": parent}
 
 
 class ImagePatch(BaseModel):
     favorite: bool | None = None
     note: str | None = None
+
+
+class PrimaryIn(BaseModel):
+    child_id: str | None = None
+
+
+@app.put("/api/images/{image_id}/primary")
+async def set_primary(image_id: str, body: PrimaryIn):
+    if not library.set_primary(image_id, body.child_id):
+        raise _not_found("Image")
+    return library.with_primary([library.get_image(image_id)])[0]  # type: ignore[list-item]
+
+
+@app.get("/api/spend")
+async def spend(chat_id: str | None = None):
+    return library.spend(chat_id=chat_id)
 
 
 @app.patch("/api/images/{image_id}")

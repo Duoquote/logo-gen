@@ -18,7 +18,6 @@ from logo_gen.config import get_settings
 from logo_gen.jobs import Job
 
 LOCAL_PREFIX = "local/"
-CLOUD_CONCURRENCY = 4
 
 
 def is_local(model: str) -> bool:
@@ -45,8 +44,73 @@ def _save(data: bytes, media_type: str, model: str, seed: int | None) -> tuple[P
 def _friendly(e: BaseException) -> str:
     msg = getattr(e, "message", None) or str(e) or e.__class__.__name__
     if "CUDA out of memory" in msg or "OutOfMemoryError" in e.__class__.__name__:
-        return "The GPU ran out of memory. Close other GPU apps or pick a smaller model."
+        return "The GPU ran out of memory even one image at a time. Close other GPU apps or pick a smaller model."
     return msg
+
+
+class AdaptiveLimiter:
+    """Caps parallel OpenRouter image requests.
+
+    Starts at the configured concurrency, halves it on a rate limit, and
+    grows back by one after a run of successes. Shared by all jobs, since
+    OpenRouter's limits are per account.
+    """
+
+    def __init__(self, limit: int) -> None:
+        self.max = limit
+        self.limit = limit
+        self.active = 0
+        self.streak = 0
+        self.cond = asyncio.Condition()
+
+    async def __aenter__(self) -> None:
+        async with self.cond:
+            await self.cond.wait_for(lambda: self.active < self.limit)
+            self.active += 1
+
+    async def __aexit__(self, *exc) -> None:
+        async with self.cond:
+            self.active -= 1
+            self.cond.notify_all()
+
+    def backoff(self) -> None:
+        self.limit = max(1, self.limit // 2)
+        self.streak = 0
+
+    async def success(self) -> None:
+        self.streak += 1
+        if self.limit < self.max and self.streak >= self.limit:
+            self.limit += 1
+            self.streak = 0
+            async with self.cond:
+                self.cond.notify_all()
+
+
+_limiter: AdaptiveLimiter | None = None
+
+
+def limiter() -> AdaptiveLimiter:
+    global _limiter
+    want = get_settings().cloud_concurrency
+    if _limiter is None or _limiter.max != want:
+        _limiter = AdaptiveLimiter(want)
+    return _limiter
+
+
+def plan(models: list[str], prompts: list[dict], per_prompt: int) -> tuple[dict[str, tuple[list[dict], int]], list[str]]:
+    """Apply the per-model caps. Returns {model: (prompts, images per prompt)} and notes on what was cut."""
+    s = get_settings()
+    out, notes = {}, []
+    for m in models:
+        cap = s.cap_for(m)
+        ps, per = prompts, per_prompt
+        if len(ps) * per > cap:
+            per = max(1, cap // len(ps))
+            if len(ps) * per > cap:
+                ps = ps[:cap]
+            notes.append(f"{m}: capped at {cap} images per request (Settings, Limits)")
+        out[m] = (ps, per)
+    return out, notes
 
 
 async def run(
@@ -62,14 +126,17 @@ async def run(
     models = [m for m in (models or s.image_models) if m]
     if not models:
         raise ValueError("No image models selected. Pick at least one in Settings or the model picker.")
-    per_prompt = max(1, min(int(images_per_prompt or s.images_per_prompt), 16))
-    refs = [(p.read_bytes(), "image/png" if p.suffix.lower() == ".png" else "image/jpeg") for p in (references or []) if p.exists()]
+    job.chat_id = chat_id
+    per_prompt = max(1, int(images_per_prompt or s.images_per_prompt))
+    work, notes = plan(models, prompts, per_prompt)
+    job.notes.extend(notes)
+    refs = [
+        (p.read_bytes(), "image/png" if p.suffix.lower() == ".png" else "image/jpeg")
+        for p in (references or []) if p.exists()
+    ]
 
-    # One task per (model, prompt). Cloud tasks ask for n images at once when
-    # the model allows it; local tasks batch up to max_batch.
-    tasks: list[tuple[str, dict]] = [(m, p) for m in models for p in prompts]
-    job.progress(done=0, total=len(tasks) * per_prompt, message=f"Generating {len(tasks) * per_prompt} images")
-    cloud_sem = asyncio.Semaphore(CLOUD_CONCURRENCY)
+    total = sum(len(ps) * per for ps, per in work.values())
+    job.progress(done=0, total=total, message=f"Generating {total} images")
     local_sem = asyncio.Semaphore(1)
 
     def record(img_path: Path, media_type: str, model: str, prompt: dict, seed: int | None, cost: float, took: float) -> None:
@@ -81,74 +148,104 @@ async def run(
         )
         job.image_ids.append(img["id"])
 
-    async def cloud(model: str, prompt: dict) -> None:
-        remaining = per_prompt
+    async def cloud(model: str, prompt: dict, per: int) -> None:
+        remaining = per
         info = await openrouter.model_info(model) or {}
         max_n = max(1, int(info.get("max_n") or 1))
-        async with cloud_sem:
-            while remaining > 0 and not job.cancelled:
-                n = min(remaining, max_n)
-                seed = random.randint(1, 2**31 - 1) if info.get("supports_seed") else None
-                t0 = time.time()
-                try:
-                    results, cost = await openrouter.generate_images(
+        lim = limiter()
+        attempt = 0
+        while remaining > 0 and not job.cancelled:
+            n = min(remaining, max_n)
+            seed = random.randint(1, 2**31 - 1) if info.get("supports_seed") else None
+            t0 = time.time()
+            try:
+                async with lim:
+                    results, usage = await openrouter.generate_images(
                         prompt["prompt"], model, n=n, seed=seed,
                         aspect_ratio=s.aspect_ratio, transparent=s.transparent_background,
                         references=refs or None,
                     )
-                except Exception as e:  # noqa: BLE001
-                    job.errors.append(f"{model}: {_friendly(e)}")
-                    job.done += remaining
-                    return
-                job.cost += cost
-                took = time.time() - t0
-                per_image_cost = cost / max(len(results), 1)
-                for r in results[:remaining]:
-                    p, mt = await asyncio.to_thread(_save, r.data, r.media_type, model, seed)
-                    record(p, mt, model, prompt, seed, per_image_cost, took)
-                got = min(len(results), remaining) or n
-                remaining -= got
-                job.done += got
-                job.message = f"{job.done}/{job.total} done"
+            except openrouter.OpenRouterError as e:
+                delay = openrouter.retry_delay(e, attempt)
+                if delay is not None and attempt < 4:
+                    attempt += 1
+                    lim.backoff()
+                    job.message = f"{model}: {e.kind.replace('_', ' ')}, retrying in {int(delay)}s"
+                    await asyncio.sleep(delay)
+                    continue
+                job.errors.append(f"{model}: {_friendly(e)}")
+                job.done += remaining
+                return
+            except Exception as e:  # noqa: BLE001
+                job.errors.append(f"{model}: {_friendly(e)}")
+                job.done += remaining
+                return
+            attempt = 0
+            await lim.success()
+            credits, byok = openrouter.usage_cost(usage)
+            got = min(len(results), remaining)
+            job.add_cost("image", {"credits": credits, "byok": byok, "model": model}, images=got)
+            took = time.time() - t0
+            per_image_cost = (credits + byok) / max(len(results), 1)
+            for r in results[:remaining]:
+                p, mt = await asyncio.to_thread(_save, r.data, r.media_type, model, seed)
+                record(p, mt, model, prompt, seed, per_image_cost, took)
+            got = got or n
+            remaining -= got
+            job.done += got
+            job.message = f"{job.done}/{job.total} done"
 
-    async def local(model: str, prompt: dict) -> None:
+    async def local(model: str, ps: list[dict], per: int) -> None:
+        """All images for one local model, batched across directions by the saved profile."""
         from logo_gen.local_models import diffusion
         from logo_gen.local_models.registry import MODELS
 
         model_id = model.removeprefix(LOCAL_PREFIX)
         spec = MODELS.get(model_id)
-        batch = spec.max_batch if spec else 1
-        seeds = [random.randint(1, 2**31 - 1) for _ in range(per_prompt)]
+        batch = max(1, int(s.local_batch.get(model_id) or (spec.max_batch if spec else 1)))
+        items = [(p, random.randint(1, 2**31 - 1)) for p in ps for _ in range(per)]
+        name = spec.name if spec else model_id
         async with local_sem:
-            for i in range(0, len(seeds), batch):
+            for i in range(0, len(items), batch):
                 if job.cancelled:
                     return
-                chunk = seeds[i : i + batch]
+                chunk = items[i : i + batch]
                 t0 = time.time()
 
-                def on_step(step: int, total: int) -> None:
-                    job.message = f"{spec.name if spec else model_id}: step {step}/{total}"
+                def on_step(step: int, total: int, size: int = len(chunk)) -> None:
+                    job.message = f"{name}: batch of {size}, step {step}/{total}"
 
                 def on_status(msg: str) -> None:
                     job.message = msg
+                    if "out of memory" in msg.lower() and msg not in job.notes:
+                        job.notes.append(msg)
 
                 try:
                     images = await asyncio.to_thread(
-                        diffusion.generate, model_id, prompt["prompt"], chunk, on_step, on_status, lambda: job.cancelled,
+                        diffusion.generate, model_id, [p["prompt"] for p, _ in chunk], [sd for _, sd in chunk],
+                        on_step, on_status, lambda: job.cancelled,
                     )
                 except Exception as e:  # noqa: BLE001
                     job.errors.append(f"{model}: {_friendly(e)}")
-                    job.done += len(seeds) - i
+                    job.done += len(items) - i
                     return
                 took = (time.time() - t0) / max(len(images), 1)
-                for im, seed in zip(images, chunk):
+                for im, (prompt, seed) in zip(images, chunk):
                     buf = io.BytesIO()
                     im.save(buf, format="PNG")
                     p, mt = await asyncio.to_thread(_save, buf.getvalue(), "image/png", model, seed)
                     record(p, mt, model, prompt, seed, 0.0, took)
+                job.local_images += len(images)
+                library.add_cost("image", model=model, job_id=job.id, chat_id=chat_id, images=len(images), local=True)
                 job.done += len(chunk)
 
-    await asyncio.gather(*[(local if is_local(m) else cloud)(m, p) for m, p in tasks])
+    coros = []
+    for m, (ps, per) in work.items():
+        if is_local(m):
+            coros.append(local(m, ps, per))
+        else:
+            coros.extend(cloud(m, p, per) for p in ps)
+    await asyncio.gather(*coros)
     n = len(job.image_ids)
     job.result.update({"images": n, "errors": len(job.errors)})
     if n == 0 and job.errors and not job.cancelled:

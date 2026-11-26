@@ -44,6 +44,21 @@ class Settings(BaseModel):
     aspect_ratio: str = "1:1"
     transparent_background: bool = False
 
+    # Limits: the most images one model may make in a single request.
+    max_images_cloud: int = Field(default=8, ge=1, le=100)
+    max_images_local: int = Field(default=16, ge=1, le=200)
+    model_caps: dict[str, int] = Field(default_factory=dict)  # per-model override, by model id
+
+    # Throughput
+    cloud_concurrency: int = Field(default=4, ge=1, le=16)  # parallel OpenRouter image requests
+    local_batch: dict[str, int] = Field(default_factory=dict)  # chosen batch size per local model id
+
+    def cap_for(self, model: str) -> int:
+        """Max images this model may make per request."""
+        if model in self.model_caps:
+            return max(1, int(self.model_caps[model]))
+        return self.max_images_local if model.startswith("local/") else self.max_images_cloud
+
 
 _lock = threading.Lock()
 _settings: Settings | None = None

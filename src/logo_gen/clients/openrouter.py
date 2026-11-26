@@ -351,6 +351,35 @@ async def model_info(model_id: str) -> dict | None:
     return m
 
 
+# ── Usage ────────────────────────────────────────────────────────────
+
+
+def usage_cost(usage: dict | None) -> tuple[float, float]:
+    """(credits, byok) from a response's usage object.
+
+    `cost` is what OpenRouter charged in credits. With a provider key
+    configured on OpenRouter (BYOK) that is often 0, and the provider bills
+    `cost_details.upstream_inference_cost` to that key instead.
+    """
+    usage = usage or {}
+    credits = float(usage.get("cost") or 0.0)
+    byok = 0.0
+    if usage.get("is_byok"):
+        byok = float((usage.get("cost_details") or {}).get("upstream_inference_cost") or 0.0)
+    return credits, byok
+
+
+RETRYABLE = ("rate_limit", "unavailable", "timeout")
+
+
+def retry_delay(e: OpenRouterError, attempt: int) -> float | None:
+    """Seconds to wait before retrying, or None when retrying won't help."""
+    in_flight = e.kind == "credits" and e.retry_after is not None
+    if e.kind not in RETRYABLE and not in_flight:
+        return None
+    return min(60.0, e.retry_after if e.retry_after else 2.0 * (2**attempt))
+
+
 # ── Chat ─────────────────────────────────────────────────────────────
 
 
@@ -392,23 +421,30 @@ async def chat(
     reasoning_effort: str | None = "low",
     json_schema: dict | None = None,
 ) -> tuple[str, dict]:
-    """One chat completion. Returns (text, usage)."""
+    """One chat completion. Returns (text, usage); usage carries the generation id."""
     _require_key()
     payload = await _chat_payload(messages, model, temperature, reasoning_effort, json_schema, stream=False)
-    try:
-        async with httpx.AsyncClient(timeout=180) as client:
-            resp = await client.post(f"{BASE_URL}/chat/completions", headers=_headers(), json=payload)
-            await _raise_for(resp)
-            data = resp.json()
-    except httpx.HTTPError as e:
-        raise _network_error(e) from e
+    for attempt in range(4):
+        try:
+            async with httpx.AsyncClient(timeout=180) as client:
+                resp = await client.post(f"{BASE_URL}/chat/completions", headers=_headers(), json=payload)
+                await _raise_for(resp)
+                data = resp.json()
+            break
+        except OpenRouterError as e:
+            delay = retry_delay(e, attempt)
+            if delay is None or attempt == 3:
+                raise
+            await asyncio.sleep(delay)
+        except httpx.HTTPError as e:
+            raise _network_error(e) from e
     if data.get("error"):
         raise error_from_payload(int(data["error"].get("code") or 500), data)
     choice = (data.get("choices") or [{}])[0]
     if choice.get("error"):
         raise error_from_payload(int(choice["error"].get("code") or 500), {"error": choice["error"]})
     text = (choice.get("message") or {}).get("content") or ""
-    return text, data.get("usage") or {}
+    return text, (data.get("usage") or {}) | {"id": data.get("id")}
 
 
 async def chat_stream(
@@ -453,7 +489,7 @@ async def chat_stream(
                         elif delta.get("reasoning"):
                             yield {"type": "reasoning", "content": delta["reasoning"]}
                     if data.get("usage"):
-                        yield {"type": "usage", **data["usage"]}
+                        yield {"type": "usage", **data["usage"], "id": data.get("id")}
     except httpx.HTTPError as e:
         raise _network_error(e) from e
 
@@ -479,8 +515,8 @@ async def generate_images(
     aspect_ratio: str | None = "1:1",
     transparent: bool = False,
     references: list[tuple[bytes, str]] | None = None,
-) -> tuple[list[ImageResult], float]:
-    """POST /images. Returns (images, cost_usd). Only sends parameters the model accepts."""
+) -> tuple[list[ImageResult], dict]:
+    """POST /images. Returns (images, usage). Only sends parameters the model accepts."""
     _require_key()
     info = await model_info(model) or {}
     params = info.get("params") or {}
@@ -524,5 +560,4 @@ async def generate_images(
         raise _network_error(e) from e
     if not results:
         raise OpenRouterError("The model returned no image.", kind="empty")
-    cost = float((data.get("usage") or {}).get("cost") or 0.0)
-    return results, cost
+    return results, data.get("usage") or {}

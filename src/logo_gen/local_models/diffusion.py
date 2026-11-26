@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gc
 import threading
+import time
 from typing import Callable
 
 from PIL import Image
@@ -115,46 +116,169 @@ def _get(spec: LocalModel, on_status: Callable[[str], None]):
     return _pipe
 
 
-def generate(
-    model_id: str,
-    prompt: str,
-    seeds: list[int],
-    on_step: Callable[[int, int], None],
-    on_status: Callable[[str], None],
-    should_stop: Callable[[], bool],
-) -> list[Image.Image]:
-    """Blocking. Generates len(seeds) images in one batched call."""
+def _is_oom(e: BaseException) -> bool:
+    return "OutOfMemoryError" in type(e).__name__ or "out of memory" in str(e).lower()
+
+
+def _free(torch) -> None:
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
+def _run(pipe, spec: LocalModel, prompts: list[str], seeds: list[int], on_step, should_stop) -> list[Image.Image]:
+    """One pipeline call: one image per (prompt, seed) pair."""
+    torch = _torch()
+    # CPU generators give the same image for a seed on every device.
+    generators = [torch.Generator("cpu").manual_seed(int(s)) for s in seeds]
+
+    def callback(p, step: int, timestep, kwargs):
+        on_step(step + 1, spec.steps)
+        if should_stop():
+            p._interrupt = True
+        return kwargs
+
+    kwargs = dict(
+        prompt=[p + PROMPT_SUFFIX for p in prompts],
+        num_inference_steps=spec.steps,
+        guidance_scale=spec.guidance,
+        height=spec.resolution,
+        width=spec.resolution,
+        num_images_per_prompt=1,
+        generator=generators,
+        callback_on_step_end=callback,
+    )
+    if spec.pipeline == "flux":
+        kwargs["max_sequence_length"] = 256
+    return list(pipe(**kwargs).images)
+
+
+def _run_stepping_down(pipe, spec, prompts, seeds, on_step, on_status, should_stop) -> list[Image.Image]:
+    """Run a batch; on out-of-memory, free VRAM and retry as two halves, down to one image."""
+    torch = _torch()
+    try:
+        return _run(pipe, spec, prompts, seeds, on_step, should_stop)
+    except Exception as e:
+        if not _is_oom(e):
+            raise
+        _free(torch)
+        if len(seeds) == 1:
+            raise
+        half = len(seeds) // 2
+        on_status(f"Out of memory at a batch of {len(seeds)}; retrying in batches of {half}")
+        first = _run_stepping_down(pipe, spec, prompts[:half], seeds[:half], on_step, on_status, should_stop)
+        if should_stop():
+            return first
+        return first + _run_stepping_down(pipe, spec, prompts[half:], seeds[half:], on_step, on_status, should_stop)
+
+
+def _check(model_id: str) -> LocalModel:
     spec = MODELS.get(model_id)
     if spec is None:
         raise ValueError(f"Unknown local model {model_id}")
     if not is_installed(spec):
         raise RuntimeError(f"{spec.name} is not installed. Install it on the Models page.")
-    torch = _torch()
+    return spec
+
+
+def generate(
+    model_id: str,
+    prompts: list[str],
+    seeds: list[int],
+    on_step: Callable[[int, int], None],
+    on_status: Callable[[str], None],
+    should_stop: Callable[[], bool],
+) -> list[Image.Image]:
+    """Blocking. One image per (prompt, seed) pair, in one batched call when memory allows."""
+    spec = _check(model_id)
     with _lock:
         pipe = _get(spec, on_status)
-        on_status(f"{spec.name}: generating")
-        # CPU generators give the same image for a seed on every device.
-        generators = [torch.Generator("cpu").manual_seed(int(s)) for s in seeds]
+        on_status(f"{spec.name}: generating a batch of {len(seeds)}")
+        images = _run_stepping_down(pipe, spec, prompts, seeds, on_step, on_status, should_stop)
+        return [] if should_stop() else images
 
-        def callback(p, step: int, timestep, kwargs):
-            on_step(step + 1, spec.steps)
+
+CALIBRATION_PROMPT = "A flat geometric logo icon of a fox head built from triangles, two colors"
+
+
+def calibrate(
+    model_id: str,
+    max_batch: int,
+    on_status: Callable[[str], None],
+    should_stop: Callable[[], bool],
+) -> dict:
+    """Time batch sizes 1, 2, 4, ... and record peak GPU memory for each.
+
+    Stops at the first out-of-memory, when a batch spills past the card's
+    memory (Windows then pages into shared system memory and gets very slow),
+    or at max_batch.
+    """
+    spec = _check(model_id)
+    torch = _torch()
+    cuda = torch.cuda.is_available() and system.device_kind() == "cuda"
+    total_gb = torch.cuda.get_device_properties(0).total_memory / 1e9 if cuda else None
+    results: list[dict] = []
+    with _lock:
+        t0 = time.perf_counter()
+        pipe = _get(spec, on_status)
+        on_status("Warming up")
+        _run(pipe, spec, [CALIBRATION_PROMPT], [1], lambda *_: None, should_stop)
+        load_s = time.perf_counter() - t0
+        sizes = [b for b in (1, 2, 3, 4, 6, 8, 12, 16) if b <= max_batch]
+        for b in sizes:
             if should_stop():
-                p._interrupt = True
-            return kwargs
+                break
+            on_status(f"Testing a batch of {b}")
+            _free(torch)
+            if cuda:
+                torch.cuda.reset_peak_memory_stats()
+            start = time.perf_counter()
+            try:
+                _run(pipe, spec, [CALIBRATION_PROMPT] * b, list(range(1, b + 1)), lambda *_: None, should_stop)
+            except Exception as e:
+                if not _is_oom(e):
+                    raise
+                _free(torch)
+                results.append({"batch": b, "ok": False, "error": "out of memory"})
+                break
+            elapsed = time.perf_counter() - start
+            peak = torch.cuda.max_memory_reserved() / 1e9 if cuda else None
+            row = {"batch": b, "ok": True, "seconds": round(elapsed, 2), "per_image": round(elapsed / b, 2),
+                   "peak_gb": round(peak, 2) if peak is not None else None}
+            results.append(row)
+            if total_gb and peak and peak > total_gb:
+                row["note"] = "spilled past the card's memory into system RAM, so it slowed down"
+                break
+            if total_gb and peak and peak > total_gb * 0.95:
+                row["note"] = "at the card's memory limit"
+                break
+            ok = [r for r in results if r["ok"]]
+            # Two sizes in a row slower per image than the best: bigger won't help.
+            if len(ok) >= 3 and ok[-1]["per_image"] > min(r["per_image"] for r in ok[:-1]) and                     ok[-2]["per_image"] > min(r["per_image"] for r in ok[:-2]):
+                break
+    return {"model_id": model_id, "device": system.device_kind(), "vram_gb": round(total_gb, 1) if total_gb else None,
+            "load_seconds": round(load_s, 1), "results": results, "options": calibration_options(results, total_gb)}
 
-        kwargs = dict(
-            prompt=prompt + PROMPT_SUFFIX,
-            num_inference_steps=spec.steps,
-            guidance_scale=spec.guidance,
-            height=spec.resolution,
-            width=spec.resolution,
-            num_images_per_prompt=len(seeds),
-            generator=generators,
-            callback_on_step_end=callback,
-        )
-        if spec.pipeline == "flux":
-            kwargs["max_sequence_length"] = 256
-        result = pipe(**kwargs)
-        if should_stop():
-            return []
-        return list(result.images)
+
+def calibration_options(results: list[dict], total_gb: float | None) -> list[dict]:
+    ok = [r for r in results if r["ok"]]
+    if not ok:
+        return []
+    fastest = min(ok, key=lambda r: r["per_image"])
+    balanced = next(
+        (r for r in ok if r["per_image"] <= fastest["per_image"] * 1.15
+         and (not total_gb or not r["peak_gb"] or r["peak_gb"] <= total_gb * 0.8)),
+        fastest,
+    )
+    one = ok[0]
+    options, seen = [], set()
+    for key, label, r in (
+        ("fastest", "Fastest overall", fastest),
+        ("single", "One image at a time (lowest VRAM)", one),
+        ("balanced", "Fast, with VRAM to spare", balanced),
+    ):
+        if r["batch"] in seen:
+            continue
+        seen.add(r["batch"])
+        options.append({"key": key, "label": label, **r})
+    return options

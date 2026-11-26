@@ -213,12 +213,27 @@ async def stream_reply(messages: list[dict]) -> AsyncIterator[dict]:
             yield ev
 
 
-async def _complete(messages: list[dict], structured: bool) -> tuple[str, float]:
+def cost_record(usage: dict | None, model: str) -> dict:
+    """Normalize a usage object into the fields library.add_cost takes."""
+    usage = usage or {}
+    credits, byok = openrouter.usage_cost(usage)
+    return {
+        "credits": credits,
+        "byok": byok,
+        "model": model,
+        "generation_id": usage.get("id"),
+        "prompt_tokens": usage.get("prompt_tokens") or 0,
+        "completion_tokens": usage.get("completion_tokens") or 0,
+    }
+
+
+async def _complete(messages: list[dict], structured: bool) -> tuple[str, dict]:
+    """Returns (reply, cost record). Local backends cost nothing."""
     s = get_settings()
     if s.llm_backend == "claude-cli":
-        return await claude_cli.chat(messages), 0.0
+        return await claude_cli.chat(messages), cost_record(None, "claude-cli")
     if s.llm_backend == "local":
-        return await local_llm.chat(messages, model=s.local_llm_model, temperature=0.9), 0.0
+        return await local_llm.chat(messages, model=s.local_llm_model, temperature=0.9), cost_record(None, backend_label())
     text, usage = await openrouter.chat(
         messages,
         model=s.chat_model,
@@ -226,7 +241,7 @@ async def _complete(messages: list[dict], structured: bool) -> tuple[str, float]
         reasoning_effort=s.reasoning_effort,
         json_schema=PROMPTS_SCHEMA if structured else None,
     )
-    return text, float(usage.get("cost") or 0.0)
+    return text, cost_record(usage, s.chat_model)
 
 
 _JSON_TAIL = (
@@ -234,7 +249,7 @@ _JSON_TAIL = (
 )
 
 
-async def directions(brief: str, n: int, images: list[Path] | None = None) -> tuple[list[dict], float]:
+async def directions(brief: str, n: int, images: list[Path] | None = None) -> tuple[list[dict], dict]:
     """One-shot: brief -> n prompt directions."""
     text = f"Brief: {brief}\n\nWrite {n} directions. {_JSON_TAIL}"
     if images:
@@ -251,7 +266,7 @@ async def directions(brief: str, n: int, images: list[Path] | None = None) -> tu
     return prompts[:n], cost
 
 
-async def variations(original: dict, n: int, instruction: str = "") -> tuple[list[dict], float]:
+async def variations(original: dict, n: int, instruction: str = "") -> tuple[list[dict], dict]:
     """Close variations of one prompt."""
     text = (
         f"Original prompt: {original.get('prompt')}\n"

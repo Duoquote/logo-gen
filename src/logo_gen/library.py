@@ -59,6 +59,33 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS messages_chat ON messages(chat_id, id);
+
+-- Every paid or local call, so spend survives restarts. credits is what
+-- OpenRouter charged; byok is what an upstream provider billed on the
+-- user's own key (OpenRouter reports it as upstream_inference_cost).
+CREATE TABLE IF NOT EXISTS costs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at REAL NOT NULL,
+    kind TEXT NOT NULL,              -- chat | prompts | image
+    model TEXT DEFAULT '',
+    chat_id TEXT,
+    job_id TEXT,
+    generation_id TEXT,
+    credits REAL DEFAULT 0,
+    byok REAL DEFAULT 0,
+    images INTEGER DEFAULT 0,
+    local INTEGER DEFAULT 0,
+    prompt_tokens INTEGER DEFAULT 0,
+    completion_tokens INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS costs_chat ON costs(chat_id);
+CREATE INDEX IF NOT EXISTS costs_job ON costs(job_id);
+
+CREATE TABLE IF NOT EXISTS calibrations (
+    model_id TEXT PRIMARY KEY,
+    created_at REAL NOT NULL,
+    data TEXT NOT NULL
+);
 """
 
 
@@ -72,8 +99,23 @@ def conn() -> sqlite3.Connection:
             c.execute("PRAGMA journal_mode=WAL")
             c.execute("PRAGMA foreign_keys=ON")
             c.executescript(SCHEMA)
+            _migrate(c)
             _conn = c
         return _conn
+
+
+def _migrate(c: sqlite3.Connection) -> None:
+    cols = {r[1] for r in c.execute("PRAGMA table_info(images)")}
+    if "primary_id" not in cols:
+        # The version of an image the user picked to keep (an upscale or a cleaned copy).
+        c.execute("ALTER TABLE images ADD COLUMN primary_id TEXT")
+    # Spend from before the costs table existed lived only on images.
+    if c.execute("SELECT COUNT(*) FROM costs").fetchone()[0] == 0:
+        c.execute(
+            """INSERT INTO costs (created_at, kind, model, chat_id, job_id, credits, images, local)
+               SELECT created_at, 'image', model, chat_id, job_id, cost, 1, CASE WHEN model LIKE 'local/%' THEN 1 ELSE 0 END
+               FROM images WHERE kind = 'generated'"""
+        )
 
 
 def _q(sql: str, args: tuple = ()) -> list[sqlite3.Row]:
@@ -128,6 +170,26 @@ def get_image(image_id: str) -> dict | None:
     return _image_dict(rows[0]) if rows else None
 
 
+def with_primary(images: list[dict]) -> list[dict]:
+    """Attach the chosen version (if any) to each image."""
+    ids = [i["primary_id"] for i in images if i.get("primary_id")]
+    if not ids:
+        return images
+    rows = {r["id"]: _image_dict(r) for r in _q(f"SELECT * FROM images WHERE id IN ({', '.join('?' for _ in ids)})", tuple(ids))}
+    for i in images:
+        i["primary"] = rows.get(i.get("primary_id") or "")
+    return images
+
+
+def set_primary(image_id: str, child_id: str | None) -> dict | None:
+    if child_id:
+        child = get_image(child_id)
+        if not child or child["parent_id"] != image_id:
+            raise ValueError("That version does not belong to this image.")
+    _x("UPDATE images SET primary_id = ? WHERE id = ?", (child_id, image_id))
+    return get_image(image_id)
+
+
 def list_images(
     kind: str | None = None,
     favorite: bool | None = None,
@@ -163,7 +225,7 @@ def list_images(
         sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
     args += [limit, offset]
-    return [_image_dict(r) for r in _q(sql, tuple(args))]
+    return with_primary([_image_dict(r) for r in _q(sql, tuple(args))])
 
 
 def children(image_id: str) -> list[dict]:
@@ -188,13 +250,75 @@ def delete_image(image_id: str) -> bool:
         paths.resolve_output(img["path"]).unlink(missing_ok=True)
     except (OSError, ValueError):
         pass
+    _x("UPDATE images SET primary_id = NULL WHERE primary_id = ?", (image_id,))
     _x("DELETE FROM images WHERE id = ?", (image_id,))
     return True
 
 
 def stats() -> dict:
-    r = _q("SELECT COUNT(*) AS n, COALESCE(SUM(cost), 0) AS cost FROM images")[0]
-    return {"images": r["n"], "cost": round(r["cost"], 4)}
+    r = _q("SELECT COUNT(*) AS n FROM images")[0]
+    return {"images": r["n"], "cost": spend()["total"]}
+
+
+# ── Spend ────────────────────────────────────────────────────────────
+
+
+def add_cost(kind: str, *, credits: float = 0.0, byok: float = 0.0, model: str = "", chat_id: str | None = None,
+             job_id: str | None = None, generation_id: str | None = None, images: int = 0, local: bool = False,
+             prompt_tokens: int = 0, completion_tokens: int = 0) -> None:
+    _x(
+        """INSERT INTO costs (created_at, kind, model, chat_id, job_id, generation_id, credits, byok, images, local,
+                              prompt_tokens, completion_tokens) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (time.time(), kind, model, chat_id, job_id, generation_id, float(credits or 0), float(byok or 0), images,
+         int(local), int(prompt_tokens or 0), int(completion_tokens or 0)),
+    )
+
+
+def spend(chat_id: str | None = None, job_id: str | None = None) -> dict:
+    where, args = [], []
+    if chat_id:
+        where.append("chat_id = ?")
+        args.append(chat_id)
+    if job_id:
+        where.append("job_id = ?")
+        args.append(job_id)
+    clause = (" WHERE " + " AND ".join(where)) if where else ""
+    rows = _q(
+        f"""SELECT kind, local, COUNT(*) AS calls, COALESCE(SUM(credits), 0) AS credits, COALESCE(SUM(byok), 0) AS byok,
+                   COALESCE(SUM(images), 0) AS images FROM costs{clause} GROUP BY kind, local""",
+        tuple(args),
+    )
+    out = {"credits": 0.0, "byok": 0.0, "total": 0.0, "chat_calls": 0, "cloud_images": 0, "local_images": 0, "by_kind": {}}
+    for r in rows:
+        out["credits"] += r["credits"]
+        out["byok"] += r["byok"]
+        k = out["by_kind"].setdefault(r["kind"], {"credits": 0.0, "byok": 0.0, "calls": 0})
+        k["credits"] += r["credits"]
+        k["byok"] += r["byok"]
+        k["calls"] += r["calls"]
+        if r["kind"] == "image":
+            out["local_images" if r["local"] else "cloud_images"] += r["images"]
+        else:
+            out["chat_calls"] += r["calls"]
+    out["total"] = out["credits"] + out["byok"]
+    for key in ("credits", "byok", "total"):
+        out[key] = round(out[key], 6)
+    return out
+
+
+# ── Calibration ──────────────────────────────────────────────────────
+
+
+def save_calibration(model_id: str, data: dict) -> None:
+    _x("INSERT OR REPLACE INTO calibrations (model_id, created_at, data) VALUES (?, ?, ?)",
+       (model_id, time.time(), json.dumps(data)))
+
+
+def get_calibration(model_id: str) -> dict | None:
+    rows = _q("SELECT * FROM calibrations WHERE model_id = ?", (model_id,))
+    if not rows:
+        return None
+    return json.loads(rows[0]["data"]) | {"created_at": rows[0]["created_at"]}
 
 
 def import_existing() -> int:

@@ -36,7 +36,11 @@ class Job:
     result: dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     finished_at: float | None = None
-    cost: float = 0.0
+    cost: float = 0.0  # OpenRouter credits
+    byok: float = 0.0  # billed by an upstream provider on the user's own key
+    local_images: int = 0
+    chat_id: str | None = None
+    notes: list[str] = field(default_factory=list)
     _cancel: threading.Event = field(default_factory=threading.Event, repr=False)
     _task: asyncio.Task | None = field(default=None, repr=False)
 
@@ -72,7 +76,19 @@ class Job:
             "created_at": self.created_at,
             "finished_at": self.finished_at,
             "cost": round(self.cost, 6),
+            "byok": round(self.byok, 6),
+            "local_images": self.local_images,
+            "chat_id": self.chat_id,
+            "notes": self.notes,
         }
+
+    def add_cost(self, kind: str, record: dict, **extra) -> None:
+        """Count a call against this job and store it in the library."""
+        from logo_gen import library
+
+        self.cost += record.get("credits", 0.0)
+        self.byok += record.get("byok", 0.0)
+        library.add_cost(kind, job_id=self.id, chat_id=self.chat_id, **(record | extra))
 
 
 class JobManager:
