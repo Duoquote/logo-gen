@@ -11,11 +11,11 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from logo_gen.config import settings
+from logo_gen import paths
 
 logger = logging.getLogger(__name__)
 
-UPSCALED_DIR = Path(settings.output_dir).parent / "upscaled"
+UPSCALED_DIR = paths.UPSCALED_DIR
 
 # --- Model URLs ---
 _MODELS = {
@@ -48,7 +48,8 @@ SCALES = {
     "8x (2x4x)": 8,
 }
 
-_CACHE_DIR = Path.home() / ".cache" / "logo-gen" / "models"
+_LEGACY_CACHE = Path.home() / ".cache" / "logo-gen" / "models"
+_CACHE_DIR = paths.MODELS_DIR / "upscalers"
 
 # Singleton model cache
 _loaded_model = None
@@ -57,6 +58,9 @@ _loaded_model_name = None
 
 def _download_weights(url: str, filename: str) -> Path:
     """Download model weights if not cached."""
+    legacy = _LEGACY_CACHE / filename
+    if legacy.exists():
+        return legacy
     _CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = _CACHE_DIR / filename
     if not path.exists():
@@ -67,10 +71,16 @@ def _download_weights(url: str, filename: str) -> Path:
 
 
 def _get_device() -> str:
+    from logo_gen import system
+
+    kind = system.device_kind()
     try:
         import torch
-        if torch.cuda.is_available():
+
+        if kind == "cuda" and torch.cuda.is_available():
             return "cuda"
+        if kind == "mps" and torch.backends.mps.is_available():
+            return "mps"
     except ImportError:
         pass
     return "cpu"
@@ -204,21 +214,6 @@ def _upscale_cubic(image: np.ndarray, scale: int) -> np.ndarray:
     return cv2.resize(image, (w * scale, h * scale), interpolation=cv2.INTER_CUBIC)
 
 
-def list_generated_images() -> list[Path]:
-    """List all PNG images in the generated output directory."""
-    gen_dir = Path(settings.output_dir)
-    if not gen_dir.exists():
-        return []
-    return sorted(gen_dir.glob("*.png"), key=lambda p: p.stat().st_mtime, reverse=True)
-
-
-def list_upscaled_images() -> list[Path]:
-    """List all PNG images in the upscaled directory."""
-    if not UPSCALED_DIR.exists():
-        return []
-    return sorted(UPSCALED_DIR.glob("*.png"), key=lambda p: p.stat().st_mtime, reverse=True)
-
-
 def upscale_image(
     image_path: Path,
     method: str = "lanczos",
@@ -232,47 +227,27 @@ def upscale_image(
 
     img = np.array(Image.open(image_path).convert("RGBA"))
 
+    if method not in _MODELS:
+        raise ValueError(f"Unknown upscale method {method}")
+    if scale not in SCALES.values():
+        raise ValueError(f"Scale must be one of {sorted(SCALES.values())}")
     if method in ("realesrgan-anime", "realesrgan-general"):
-        try:
-            result = _upscale_ai(img, method, scale)
-        except Exception as e:
-            logger.warning("AI upscale failed, falling back to Lanczos: %s", e)
-            result = _upscale_lanczos(img, scale)
+        from logo_gen import system
+
+        if not system.local_stack_installed():
+            raise ValueError("Real-ESRGAN needs local model support (PyTorch). Install it on the Models page, "
+                             "or use Lanczos.")
+        result = _upscale_ai(img, method, scale)
     elif method == "cubic":
         result = _upscale_cubic(img, scale)
     else:
         result = _upscale_lanczos(img, scale)
 
-    out_name = f"{image_path.stem}_{method}_{scale}x.png"
-    out_path = UPSCALED_DIR / out_name
+    out_path = UPSCALED_DIR / f"{image_path.stem}_{method}_{scale}x.png"
+    i = 2
+    while out_path.exists():
+        out_path = UPSCALED_DIR / f"{image_path.stem}_{method}_{scale}x_{i}.png"
+        i += 1
     Image.fromarray(result).save(out_path)
 
     return out_path
-
-
-def upscale_batch(
-    image_paths: list[Path],
-    method: str = "lanczos",
-    scale: int = 4,
-    progress_callback=None,
-) -> list[Path]:
-    """Upscale multiple images."""
-    results = []
-    total = len(image_paths)
-
-    for i, path in enumerate(image_paths):
-        if progress_callback:
-            progress_callback(i, total, f"Upscaling {i+1}/{total}: {path.name}")
-
-        try:
-            out = upscale_image(path, method=method, scale=scale)
-            results.append(out)
-        except Exception as e:
-            logger.error("Failed to upscale %s: %s", path.name, e)
-            if progress_callback:
-                progress_callback(i, total, f"Error on {path.name}: {e}")
-
-    if progress_callback:
-        progress_callback(total, total, f"Done! {len(results)}/{total} upscaled")
-
-    return results
