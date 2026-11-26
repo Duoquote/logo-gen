@@ -41,13 +41,21 @@ async def lifespan(app: FastAPI):
     paths.ensure_dirs()
     library.conn()
     await run_in_threadpool(library.import_existing)
-    background = [asyncio.create_task(manager.refresh_remote())]
+    background = [asyncio.create_task(manager.refresh_remote()), asyncio.create_task(asyncio.to_thread(_warm_rembg))]
     if get_secret("OPENROUTER_KEY"):
         background.append(asyncio.create_task(_warm_catalog()))
     yield
     for t in background:
         t.cancel()
     await manager.shutdown()
+
+
+def _warm_rembg() -> None:
+    """The first rembg import compiles numba code (about a minute in a fresh venv). Do it before anyone waits on it."""
+    try:
+        import rembg  # noqa: F401
+    except Exception:  # noqa: BLE001
+        pass
 
 
 async def _warm_catalog() -> None:

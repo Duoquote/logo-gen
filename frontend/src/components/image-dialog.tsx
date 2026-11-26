@@ -301,7 +301,7 @@ function UpscalePanel({ img, onDone }: { img: ImageDetail; onDone: (id: string) 
         </Button>
       </div>
       {upscale.isPending && method.startsWith("realesrgan") && tools.data?.upscale.device === "cpu" && (
-        <p className="text-xs text-muted-foreground">Running on the CPU, this can take a minute.</p>
+        <p className="text-xs text-muted-foreground">Real-ESRGAN on the CPU takes a few minutes for a 1024 px image.</p>
       )}
     </div>
   )

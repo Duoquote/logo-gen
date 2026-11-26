@@ -49,11 +49,14 @@ def digest(*items: Path) -> str:
     h = hashlib.sha256()
     for item in items:
         files = sorted(p for p in item.rglob("*") if p.is_file()) if item.is_dir() else [item]
+        # The router plugin rewrites this file on every build; the routes it comes from are hashed anyway.
+        files = [f for f in files if f.name != "routeTree.gen.ts"]
         for f in files:
             if not f.exists():
                 continue
-            h.update(str(f.relative_to(ROOT)).encode())
-            h.update(f.read_bytes())
+            h.update(f.relative_to(ROOT).as_posix().encode())
+            # Ignore line endings so a checkout with autocrlf hashes the same.
+            h.update(f.read_bytes().replace(b"\r\n", b"\n"))
     return h.hexdigest()[:16]
 
 
@@ -148,7 +151,7 @@ def frontend(state: dict, force_build: bool) -> None:
     if force_build or state.get("frontend_build") != build_key or not (FRONTEND / "dist" / "index.html").exists():
         bun = bun or find_bun()
         say("Frontend: building")
-        run([bun, "run", "build"], cwd=FRONTEND)
+        run([bun, "run", "build", "--logLevel", "warn"], cwd=FRONTEND)
         state["frontend_build"] = build_key
     else:
         say("Frontend: up to date")
