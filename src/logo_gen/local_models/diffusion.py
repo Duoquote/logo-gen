@@ -264,7 +264,9 @@ def calibrate(
                 break
             ok = [r for r in results if r["ok"]]
             # Two sizes in a row slower per image than the best: bigger won't help.
-            if len(ok) >= 3 and ok[-1]["per_image"] > min(r["per_image"] for r in ok[:-1]) and                     ok[-2]["per_image"] > min(r["per_image"] for r in ok[:-2]):
+            if len(ok) >= 3 and ok[-1]["per_image"] > min(r["per_image"] for r in ok[:-1]) and (
+                ok[-2]["per_image"] > min(r["per_image"] for r in ok[:-2])
+            ):
                 break
     return {"model_id": model_id, "device": system.device_kind(), "vram_gb": round(total_gb, 1) if total_gb else None,
             "load_seconds": round(load_s, 1), "results": results, "options": calibration_options(results, total_gb)}
