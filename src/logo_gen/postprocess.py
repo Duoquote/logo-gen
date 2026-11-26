@@ -83,16 +83,30 @@ def remove_background(src: Path, model_name: str = DEFAULT_MODEL, alpha_matting:
     return out
 
 
+def color_distance(rgb: np.ndarray, target: tuple[int, int, int]) -> np.ndarray:
+    """Euclidean RGB distance per pixel, 0 to about 441.
+
+    Computed in int32: a squared difference of two 0-255 values reaches
+    65025, which overflows int16 and turns the distance into NaN.
+    """
+    diff = rgb.astype(np.int32) - np.asarray(target, dtype=np.int32)
+    return np.sqrt(np.sum(diff * diff, axis=-1, dtype=np.int64))
+
+
+def color_key(img: Image.Image, target: tuple[int, int, int], tolerance: int) -> Image.Image:
+    """Make pixels within tolerance (0-100) of the target color fully transparent."""
+    arr = np.array(img.convert("RGBA"))
+    dist = color_distance(arr[:, :, :3], target)
+    arr[:, :, 3] = np.where(dist <= tolerance * 2.21, 0, arr[:, :, 3]).astype(np.uint8)
+    return Image.fromarray(arr)
+
+
 def remove_background_color(
     src: Path, tolerance: int = 30, color: tuple[int, int, int] | None = None, erode_pixels: int = 0
 ) -> Path:
     """Make pixels near one color transparent. Without a color, use the corners."""
     img = Image.open(src).convert("RGBA")
-    target = color or _corner_color(img)
-    arr = np.array(img, dtype=np.int16)
-    dist = np.sqrt(np.sum((arr[:, :, :3] - np.array(target, dtype=np.int16)) ** 2, axis=2))
-    arr[:, :, 3] = np.where(dist <= tolerance * 2.21, 0, arr[:, :, 3])
-    result = _erode_alpha(Image.fromarray(arr.astype(np.uint8), mode="RGBA"), erode_pixels)
+    result = _erode_alpha(color_key(img, color or _corner_color(img), tolerance), erode_pixels)
     out = _out_path(src, "key")
     result.save(out)
     return out
