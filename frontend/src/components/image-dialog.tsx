@@ -7,6 +7,7 @@ import {
   Loader2Icon,
   Maximize2Icon,
   SparklesIcon,
+  StarIcon,
   Trash2Icon,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -28,6 +29,7 @@ import {
   useImage,
   useJob,
   useRemoveBackground,
+  useSetPrimary,
   useToggleFavorite,
   useTools,
   useUpscale,
@@ -60,6 +62,12 @@ export function ImageDialog({
   )
 }
 
+function versionLabel(c: ImageItem): string {
+  if (c.kind === "upscaled") return `Upscale: ${c.note || "upscaled"}${c.width ? ` (${c.width} px)` : ""}`
+  if (c.kind === "cleaned") return `Background: ${c.note || "removed"}`
+  return `Variation: ${c.concept || shortModel(c.model)}`
+}
+
 function ImageDetailView({
   img,
   onSelect,
@@ -71,35 +79,132 @@ function ImageDetailView({
 }) {
   const fav = useToggleFavorite()
   const del = useDeleteImage()
-  const family: ImageItem[] = [...(img.parent ? [img.parent] : []), ...img.children]
+  const primary = useSetPrimary()
+  const [compareId, setCompareId] = useState<string | null>(null)
+  const [mode, setMode] = useState<"side" | "toggle">("side")
+  const [showCandidate, setShowCandidate] = useState(true)
+  const candidate = img.children.find((c) => c.id === compareId) ?? null
+
+  const groups: [string, ImageItem[]][] = [
+    ["Background removed", img.children.filter((c) => c.kind === "cleaned")],
+    ["Upscaled", img.children.filter((c) => c.kind === "upscaled")],
+    ["Variations", img.children.filter((c) => c.kind === "generated")],
+  ]
+
+  const view = (src: ImageItem, label: string) => (
+    <figure className="flex min-w-0 flex-1 flex-col gap-1">
+      <img
+        src={src.url}
+        alt={label}
+        className={cn("aspect-square w-full border object-contain", src.kind === "cleaned" && "checker")}
+      />
+      <figcaption className="truncate text-xs text-muted-foreground">{label}</figcaption>
+    </figure>
+  )
 
   return (
     <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="flex flex-col gap-3">
-        <img
-          src={img.url}
-          alt={img.concept || img.prompt}
-          className={cn("aspect-square w-full border object-contain", img.kind === "cleaned" && "checker")}
-        />
-        {family.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-muted-foreground">
-              {img.parent ? "Made from / derived versions" : "Derived versions"}
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {family.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => onSelect(c.id)}
-                  className="border hover:border-primary"
-                  title={c.note || c.kind}
-                >
-                  <img src={c.url} alt="" className={cn("size-16 object-contain", c.kind === "cleaned" && "checker")} />
-                </button>
-              ))}
+      <div className="flex min-w-0 flex-col gap-3">
+        {candidate ? (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <ToggleGroup
+                type="single"
+                variant="outline"
+                size="sm"
+                value={mode}
+                onValueChange={(v) => v && setMode(v as "side" | "toggle")}
+              >
+                <ToggleGroupItem value="side">Side by side</ToggleGroupItem>
+                <ToggleGroupItem value="toggle">Toggle</ToggleGroupItem>
+              </ToggleGroup>
+              {mode === "toggle" && (
+                <Button size="sm" variant="outline" onClick={() => setShowCandidate((v) => !v)}>
+                  Showing the {showCandidate ? "candidate" : "original"}. Switch
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setCompareId(null)}>
+                Close comparison
+              </Button>
             </div>
-          </div>
+            {mode === "side" ? (
+              <div className="flex gap-3">
+                {view(img, "Original")}
+                {view(candidate, versionLabel(candidate))}
+              </div>
+            ) : showCandidate ? (
+              view(candidate, versionLabel(candidate))
+            ) : (
+              view(img, "Original")
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {img.primary_id === candidate.id ? (
+                <Button size="sm" variant="outline" onClick={() => primary.mutate({ id: img.id, childId: null })}>
+                  <StarIcon className="fill-current text-primary" />
+                  Primary version (click to unset)
+                </Button>
+              ) : (
+                <Button size="sm" onClick={() => primary.mutate({ id: img.id, childId: candidate.id })}>
+                  <StarIcon />
+                  Use this version
+                </Button>
+              )}
+              <Button asChild size="sm" variant="outline">
+                <a href={`${candidate.url}?download=1`} download>
+                  <DownloadIcon />
+                  Download
+                </a>
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => onSelect(candidate.id)}>
+                Open
+              </Button>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Delete this version"
+                onClick={() => del.mutate(candidate.id, { onSuccess: () => setCompareId(null) })}
+              >
+                <Trash2Icon />
+              </Button>
+            </div>
+          </>
+        ) : (
+          view(img, img.parent ? `Version of ${img.parent.concept || "an image"}${img.note ? ` (${img.note})` : ""}` : "Original")
+        )}
+
+        {img.parent && (
+          <Button size="sm" variant="ghost" className="self-start" onClick={() => onSelect(img.parent!.id)}>
+            Back to the original
+          </Button>
+        )}
+
+        {groups.map(([title, items]) =>
+          items.length ? (
+            <div key={title} className="flex flex-col gap-1.5">
+              <span className="text-xs text-muted-foreground">
+                {title} ({items.length}){title !== "Variations" && ", click one to compare"}
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {items.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => (c.kind === "generated" ? onSelect(c.id) : setCompareId(c.id))}
+                    className={cn("relative border hover:border-primary", compareId === c.id && "border-primary")}
+                    title={versionLabel(c)}
+                  >
+                    <img src={c.url} alt="" className={cn("size-16 object-contain", c.kind === "cleaned" && "checker")} />
+                    {img.primary_id === c.id && (
+                      <StarIcon className="absolute top-0.5 right-0.5 size-3 fill-current text-primary" />
+                    )}
+                    <span className="block max-w-16 truncate px-0.5 text-[9px] text-muted-foreground">
+                      {c.kind === "generated" ? shortModel(c.model) : c.note}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null,
         )}
       </div>
 
@@ -109,16 +214,17 @@ function ImageDetailView({
           <DialogDescription className="mt-1">
             {shortModel(img.model)}
             {img.width ? ` · ${img.width}×${img.height}` : ""}
-            {img.cost ? ` · ${formatUsd(img.cost)}` : ""}
+            {img.model.startsWith("local/") ? " · local, $0" : img.cost ? ` · ${formatUsd(img.cost, 4)}` : ""}
             {img.note ? ` · ${img.note}` : ""}
           </DialogDescription>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <Button asChild size="sm">
-            <a href={`${img.url}?download=1`} download>
+            <a href={`${(img.primary ?? img).url}?download=1`} download>
               <DownloadIcon />
               Download {img.vector ? "SVG" : "PNG"}
+              {img.primary && " (primary version)"}
             </a>
           </Button>
           <Button size="sm" variant="outline" onClick={() => fav.mutate({ id: img.id, favorite: !img.favorite })}>
@@ -172,12 +278,16 @@ function ImageDetailView({
             <VariationsPanel img={img} />
           </TabsContent>
           <TabsContent value="upscale">
-            <UpscalePanel img={img} onDone={onSelect} />
+            <UpscalePanel img={img} onDone={setCompareId} />
           </TabsContent>
           <TabsContent value="background">
-            <BackgroundPanel img={img} onDone={onSelect} />
+            <BackgroundPanel img={img} onDone={setCompareId} />
           </TabsContent>
         </Tabs>
+        <p className="text-xs text-muted-foreground">
+          Upscales and background removals stay next to the original as candidates. Try a few, compare them, and pick
+          one with Use this version. The original is never replaced.
+        </p>
       </div>
     </div>
   )

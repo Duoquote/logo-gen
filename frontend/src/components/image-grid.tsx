@@ -27,10 +27,10 @@ export function ImageGrid({
         <figure key={img.id} className="group relative border bg-card">
           <button type="button" onClick={() => onOpen(img.id)} className="block w-full">
             <img
-              src={img.url}
+              src={(img.primary ?? img).url}
               alt={img.concept || img.prompt}
               loading="lazy"
-              className={cn("aspect-square w-full object-contain", img.kind === "cleaned" && "checker")}
+              className={cn("aspect-square w-full object-contain", (img.primary ?? img).kind === "cleaned" && "checker")}
             />
           </button>
           <figcaption className="flex items-center gap-1 border-t px-2 py-1 text-[11px] text-muted-foreground">
@@ -38,6 +38,7 @@ export function ImageGrid({
               {img.concept || shortModel(img.model)}
             </span>
             {img.kind !== "generated" && <span className="uppercase">{img.kind === "cleaned" ? "bg" : "up"}</span>}
+            {img.primary && <span title={`Showing the version you picked: ${img.primary.note}`}>edited</span>}
             {img.vector && <span>SVG</span>}
             <button
               type="button"
