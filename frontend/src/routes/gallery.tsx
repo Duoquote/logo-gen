@@ -13,10 +13,12 @@ import { useImages, useSystem } from "@/lib/queries"
 
 type Kind = "all" | "generated" | "upscaled" | "cleaned"
 
+// The gallery opens on original logos; derived versions are a click away and listed in each image.
+
 export const Route = createFileRoute("/gallery")({
   validateSearch: (s: Record<string, unknown>): { q?: string; kind?: Kind; fav?: boolean; image?: string } => ({
     q: typeof s.q === "string" ? s.q : undefined,
-    kind: (["generated", "upscaled", "cleaned"].includes(s.kind as string) ? s.kind : undefined) as Kind | undefined,
+    kind: (["all", "upscaled", "cleaned"].includes(s.kind as string) ? s.kind : undefined) as Kind | undefined,
     fav: s.fav === true || s.fav === "true" ? true : undefined,
     image: typeof s.image === "string" ? s.image : undefined,
   }),
@@ -35,7 +37,8 @@ function GalleryPage() {
     return () => clearTimeout(t)
   }, [q, navigate])
 
-  const images = useImages({ q: search.q, kind: search.kind, favorite: search.fav, limit: 500 })
+  const kind = search.kind ?? "generated"
+  const images = useImages({ q: search.q, kind: kind === "all" ? undefined : kind, favorite: search.fav, limit: 500 })
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-4 p-6">
@@ -50,15 +53,15 @@ function GalleryPage() {
           type="single"
           variant="outline"
           size="sm"
-          value={search.kind ?? "all"}
+          value={kind}
           onValueChange={(v) =>
-            v && navigate({ search: (p) => ({ ...p, kind: v === "all" ? undefined : (v as Kind) }) })
+            v && navigate({ search: (p) => ({ ...p, kind: v === "generated" ? undefined : (v as Kind) }) })
           }
         >
-          <ToggleGroupItem value="all">All</ToggleGroupItem>
-          <ToggleGroupItem value="generated">Generated</ToggleGroupItem>
+          <ToggleGroupItem value="generated">Logos</ToggleGroupItem>
           <ToggleGroupItem value="upscaled">Upscaled</ToggleGroupItem>
           <ToggleGroupItem value="cleaned">No background</ToggleGroupItem>
+          <ToggleGroupItem value="all">Everything</ToggleGroupItem>
         </ToggleGroup>
         <Toggle
           variant="outline"
