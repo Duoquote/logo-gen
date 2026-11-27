@@ -215,6 +215,8 @@ def _message(r) -> dict:
         "images": json.loads(r["images"] or "[]"),
         "prompts": _with_base_prompts(json.loads(r["prompts"] or "[]")),
         "status": r["status"] or "done",
+        "note": r["note"] or "",
+        "setup": json.loads(r["setup"]) if r["setup"] else None,
         "error": r["error"] or "",
         "model": r["model"] or "",
         "created_at": r["created_at"],
@@ -252,10 +254,12 @@ def add_message(
 
 
 def update_message(message_id: int, **fields: Any) -> None:
-    allowed = {"content", "reasoning", "prompts", "status", "error", "finished_at", "model"}
+    allowed = {"content", "reasoning", "prompts", "status", "error", "finished_at", "model", "note", "setup"}
     fields = {k: v for k, v in fields.items() if k in allowed}
     if "prompts" in fields:
         fields["prompts"] = json.dumps(fields["prompts"] or [])
+    if "setup" in fields:
+        fields["setup"] = json.dumps(fields["setup"]) if fields["setup"] else None
     if not fields:
         return
     sets = ", ".join(f"{k} = ?" for k in fields)

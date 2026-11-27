@@ -471,19 +471,15 @@ def _money(x: float) -> str:
     return f"${x:.3f}" if x < 0.1 else f"${x:.2f}"
 
 
-async def auto_round(chat_id: str, message_id: int, prompts: list[dict], history: list[dict]) -> str:
-    """Render a designer reply's directions right away, as a server job. Returns a line for the reply.
+async def plan_round(prompts: list[dict], check_key: bool) -> dict:
+    """What a round of these directions would render with the current setup, after caps and skips.
 
-    Only runs when "Generate automatically" is on (Settings, or the chat's own switch).
-
-    Uses the selected image models and images per direction (Settings, or the composer), within the
-    per-model caps. Models that can't run here are skipped with a reason. When the round's estimated
-    cloud cost is more than the key has left under its spending limit, the cloud models are skipped too.
+    Uses the selected image models and images per direction (the composer, which is Settings), within
+    the per-model caps. Models that can't run here are skipped with a reason. With check_key, cloud models
+    are skipped too when the round's estimated cost is more than the key has left under its limit.
     """
     s = get_settings()
     selected = [m for m in s.image_models if m]
-    if not selected:
-        return "Pick an image model below the message box and press Generate to render these."
     per = max(1, int(s.images_per_prompt or 1))
     usable, skipped = [], []
     for m in selected:
@@ -499,42 +495,73 @@ async def auto_round(chat_id: str, message_id: int, prompts: list[dict], history
                 usable.remove(m)
                 skipped.append(f"{spec.name} (can't run on this machine)")
     work, cap_notes = generator.plan(usable, prompts, per)
-    parts, cloud_cost, unknown = [], 0.0, []
+    parts: dict[str, str] = {}
+    cloud_cost = 0.0
     for m, (ps, n) in work.items():
         count = len(ps) * n
         name = m.removeprefix("local/") if generator.is_local(m) else m.split("/", 1)[-1]
         if generator.is_local(m):
-            parts.append(f"{count} on {name} (local, free)")
+            parts[m] = f"{count} on {name}, local, free"
             continue
         price = (await openrouter.model_info(m) or {}).get("price_per_image")
         if price is None:
-            unknown.append(m)
-            parts.append(f"{count} on {name} (price unknown)")
+            parts[m] = f"{count} on {name}, price unknown"
         else:
             cloud_cost += price * count
-            parts.append(f"{count} on {name} (about {_money(price * count)})")
+            parts[m] = f"{count} on {name}, about {_money(price * count)}"
     cloud = [m for m in work if not generator.is_local(m)]
-    if cloud and cloud_cost > 0:
+    if check_key and cloud and cloud_cost > 0:
         key = await openrouter.key_status()
         left = key.get("limit_remaining")
         if isinstance(left, (int, float)) and cloud_cost > left:
             for m in cloud:
                 work.pop(m)
+                parts.pop(m)
                 skipped.append(f"{m} (about {_money(cloud_cost)} for this round, but the key has {_money(left)} left)")
-            parts = [p for p in parts if "(local, free)" in p]
             cloud_cost = 0.0
-    note_skipped = f" Skipped: {'; '.join(skipped)}." if skipped else ""
-    if not work:
-        return f"Not rendering these automatically.{note_skipped} Press Generate when you're ready."
+    return {
+        "selected": selected, "per": per, "work": work, "parts": list(parts.values()), "cost": cloud_cost,
+        "skipped": skipped, "trimmed": bool(cap_notes),
+        "total": sum(len(ps) * n for ps, n in work.values()),
+    }
+
+
+def _round_text(plan: dict) -> str:
+    """'16 images (16 on zimage-turbo, local, free)', plus the total cost when there is one."""
+    total = plan["total"]
+    text = f"{total} image{'s' if total != 1 else ''} ({'; '.join(plan['parts'])})"
+    return text + (f", about {_money(plan['cost'])} in all" if plan["cost"] > 0 and len(plan["parts"]) > 1 else "")
+
+
+def _round_extras(plan: dict) -> str:
+    out = f" Skipped: {'; '.join(plan['skipped'])}." if plan["skipped"] else ""
+    if plan["trimmed"]:
+        out += " Some were trimmed to the per-model caps in Settings."
+    return out
+
+
+async def reply_round(chat_id: str, message_id: int, prompts: list[dict], history: list[dict]) -> str:
+    """The line under a designer reply with directions, from the setup as it is when the reply ends.
+
+    With "Generate automatically" on (Settings, or the chat's own switch) this starts the round as a
+    server job linked to the reply, and the line describes that job. Otherwise nothing starts and the
+    line says what Generate would make. The designer never writes this line itself.
+    """
+    auto = chats.generates_automatically(chat_id)
+    if not any(m for m in get_settings().image_models):
+        return "Pick an image model below the message box, then press Generate."
+    plan = await plan_round(prompts, check_key=auto)
+    if not auto:
+        if not plan["work"]:
+            return f"Nothing can render these right now.{_round_extras(plan)}"
+        return f"Ready to render {_round_text(plan)}. Press Generate when you're happy with them.{_round_extras(plan)}"
+    if not plan["work"]:
+        return f"Not rendering these automatically.{_round_extras(plan)} Press Generate when you're ready."
     refs: list[Path] = []
     for m in history:
         refs.extend(_refs(m.get("images") or []))
-    total = sum(len(ps) * n for ps, n in work.values())
-    cost = f" About {_money(cloud_cost)} in all." if cloud_cost > 0 else ""
-    line = f"Rendering {total} image{'s' if total != 1 else ''} now: {', '.join(parts)}.{cost}{note_skipped}"
-    if cap_notes:
-        line += " Some were trimmed to the per-model caps in Settings."
-    start_generation(prompts, list(work), per, refs, chat_id, message_id, notes=[line])
+    line = f"Rendering {_round_text(plan)} now.{_round_extras(plan)}"
+    start_generation(prompts, list(plan["work"]), plan["per"], refs, chat_id, message_id, notes=[line])
     return line
 
 
@@ -727,6 +754,29 @@ class MessageIn(BaseModel):
     # the edit becomes a sibling and the old branch stays.
     parent_id: int | None = None
     edit_of: int | None = None
+    # The composer's selection when the message was sent. It's saved to Settings before the reply
+    # starts, so the reply can't race the composer's own settings update.
+    image_models: list[str] | None = None
+    images_per_prompt: int | None = None
+
+
+class ComposerIn(BaseModel):
+    image_models: list[str] | None = None
+    images_per_prompt: int | None = None
+
+
+def _apply_composer(body: MessageIn | ComposerIn | None) -> None:
+    """Make Settings match what the composer showed when the user pressed send."""
+    if body is None:
+        return
+    patch: dict[str, Any] = {}
+    if body.image_models is not None:
+        patch["image_models"] = [m for m in body.image_models if m]
+    if body.images_per_prompt is not None:
+        patch["images_per_prompt"] = max(1, min(int(body.images_per_prompt), 64))
+    s = get_settings()
+    if any(getattr(s, k) != v for k, v in patch.items()):
+        update_settings(patch)
 
 
 class ActiveIn(BaseModel):
@@ -857,14 +907,16 @@ async def send_message(chat_id: str, body: MessageIn):
         if not p or p["chat_id"] != chat_id:
             raise ValueError("That message is not in this chat.")
     images = [paths.rel_output(p) for p in _refs(body.images)]
+    _apply_composer(body)
     user_id = chats.add_message(chat_id, "user", text, parent, images=images)
     reply_id = turns.start(chat_id, user_id)
     return {"user_id": user_id, "reply_id": reply_id}
 
 
 @app.post("/api/chats/{chat_id}/messages/{message_id}/regenerate")
-async def regenerate(chat_id: str, message_id: int):
-    """A new reply to the same user message. The old reply stays as a sibling."""
+async def regenerate(chat_id: str, message_id: int, body: ComposerIn | None = None):
+    """A new reply to the same user message. The old reply stays as a sibling. The body can carry the composer's
+    current image_models and images_per_prompt, as for a new message."""
     _chat_or_404(chat_id)
     m = chats.get_message(message_id)
     if not m or m["chat_id"] != chat_id:
@@ -872,6 +924,9 @@ async def regenerate(chat_id: str, message_id: int):
     parent = m["id"] if m["role"] == "user" else m["parent_id"]
     if parent is None:
         raise ValueError("Nothing to answer.")
+    if turns.running_in(chat_id):
+        raise turns.TurnBusy()
+    _apply_composer(body)
     return {"reply_id": turns.start(chat_id, parent)}
 
 
