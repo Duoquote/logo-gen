@@ -73,7 +73,7 @@ class Brief:
 
     def summary(self) -> str:
         """One readable line for the chat and the gallery. Not a model prompt."""
-        subject = self.subject[:1].lower() + self.subject[1:] if self.subject[:2] in ("A ", "An", "Th") else self.subject
+        subject = self.subject
         parts = [f"{self.mark_type.capitalize()} {self.format}: {subject}".strip().rstrip(".") + "."]
         look = ", ".join(x for x in (self.shape_language, self.style) if x)
         if look:
@@ -134,6 +134,11 @@ def _palette(raw: object) -> list[Color]:
     return out
 
 
+def _lc(s: str) -> str:
+    """Lowercase a leading capital so a field reads mid-sentence ("The name" -> "the name"), but keep acronyms."""
+    return s[:1].lower() + s[1:] if s[:1].isupper() and not s[1:2].isupper() else s
+
+
 def from_dict(d: dict) -> Brief:
     """Build a brief from whatever the chat model returned. Forgiving on purpose."""
     avoid = d.get("avoid") or []
@@ -143,12 +148,12 @@ def from_dict(d: dict) -> Brief:
         concept=_str(d.get("concept")) or "Direction",
         mark_type=_pick(_str(d.get("mark_type")), MARK_TYPES, "pictorial"),
         format=_pick(_str(d.get("format")), FORMATS, "logo"),
-        subject=_str(d.get("subject")),
-        composition=_str(d.get("composition")),
-        shape_language=_str(d.get("shape_language")),
-        style=_str(d.get("style")),
+        subject=_lc(_str(d.get("subject"))),
+        composition=_lc(_str(d.get("composition"))),
+        shape_language=_lc(_str(d.get("shape_language"))),
+        style=_lc(_str(d.get("style"))),
         palette=_palette(d.get("palette")),
-        background=_str(d.get("background")) or "white",
+        background=re.sub(r"^solid\s+", "", _lc(_str(d.get("background"))), flags=re.I) or "white",
         text=_str(d.get("text")).strip("\"'"),
         avoid=[_str(a) for a in avoid if _str(a)][:6],
     )

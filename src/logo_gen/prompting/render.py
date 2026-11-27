@@ -244,7 +244,7 @@ def _near_white(bg: str) -> bool:
     if rgb is None:
         return False
     r, g, b = (c / 255 for c in rgb)
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.9 and max(rgb) - min(rgb) < 24
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.9 and max(rgb) - min(rgb) < 40
 
 
 def _background(b: Brief, transparent: bool) -> str:
