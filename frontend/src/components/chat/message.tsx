@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Link } from "@tanstack/react-router"
 import {
   AlertCircleIcon,
   BrainIcon,
@@ -7,6 +8,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
+  ExternalLinkIcon,
   Loader2Icon,
   PencilIcon,
   RefreshCwIcon,
@@ -289,16 +291,19 @@ export function Directions({
     <div className="flex flex-col gap-2 border p-2 sm:p-3">
       <div className="grid gap-1">
         {prompts.map((p, i) => (
-          <label key={i} className={cn("flex cursor-pointer gap-3 p-2 hover:bg-muted", selected.has(i) && "bg-muted/60")}>
-            <Checkbox checked={selected.has(i)} onCheckedChange={() => toggle(i)} className="mt-0.5" />
-            <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-xs font-medium">
-                {p.concept}
-                {p.style && <span className="font-normal text-muted-foreground"> · {p.style}</span>}
+          <div key={i} className={cn("flex items-start gap-1 hover:bg-muted", selected.has(i) && "bg-muted/60")}>
+            <label className="flex min-w-0 flex-1 cursor-pointer gap-3 p-2">
+              <Checkbox checked={selected.has(i)} onCheckedChange={() => toggle(i)} className="mt-0.5" />
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-xs font-medium">
+                  {p.concept}
+                  {p.style && <span className="font-normal text-muted-foreground"> · {p.style}</span>}
+                </span>
+                <span className="text-xs break-words text-muted-foreground">{p.base_prompt || p.prompt}</span>
               </span>
-              <span className="text-xs break-words text-muted-foreground">{p.prompt}</span>
-            </span>
-          </label>
+            </label>
+            <PromptActions prompt={p} />
+          </div>
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -318,6 +323,47 @@ export function Directions({
           {rendered ? "Generate more" : "Generate"} {total || ""}
         </Button>
       </div>
+    </div>
+  )
+}
+
+/** Copy one direction's prompt, or open it in the Generate page. Outside the row's label, so they don't tick it. */
+function PromptActions({ prompt }: { prompt: Prompt }) {
+  const [done, setDone] = useState(false)
+  const text = prompt.base_prompt || prompt.prompt
+  const label = done ? "Copied" : `Copy the prompt for ${prompt.concept}`
+  return (
+    <div className="flex shrink-0 gap-0.5 p-1.5">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            aria-label={label}
+            onClick={() =>
+              navigator.clipboard.writeText(text).then(() => {
+                setDone(true)
+                setTimeout(() => setDone(false), 1500)
+              })
+            }
+          >
+            {done ? <CheckIcon /> : <CopyIcon />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-64">
+          {done ? "Copied" : "Copies the base prompt; each model gets its own phrasing when generated here"}
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button size="icon-xs" variant="ghost" aria-label={`Open ${prompt.concept} in Generate`} asChild>
+            <Link to="/" search={{ prompt: text }}>
+              <ExternalLinkIcon />
+            </Link>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-64">Open in Generate with this prompt, sent as written</TooltipContent>
+      </Tooltip>
     </div>
   )
 }

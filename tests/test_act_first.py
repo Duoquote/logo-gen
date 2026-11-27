@@ -13,6 +13,7 @@ import pytest
 
 from logo_gen import config, generator, prompt_engine, server, turns
 from logo_gen.clients import openrouter
+from logo_gen.prompting import render
 
 BRIEF = {
     "concept": "Folded hexagon", "mark_type": "abstract", "format": "logo", "subject": "a hexagon folded along one diagonal",
@@ -99,6 +100,11 @@ def test_a_brief_gets_directions_right_away_and_waits_for_generate(designer):
             assert "Rendering" not in reply["content"]
             assert "Act first" in designer["systems"][0]
             assert "rendered as soon as you reply" not in designer["systems"][0]
+            # Each direction has one model-ready prompt to copy. Pasted into the Generate page with
+            # "Write prompts with AI" off, it goes out as written.
+            base = reply["prompts"][0]["base_prompt"]
+            assert base.startswith("A flat vector abstract logo mark of a hexagon folded") and "#3776AB" in base
+            assert render.render_raw(base, "recraft/recraft-v4.1-flash").prompt == base
 
     asyncio.run(go())
 

@@ -251,6 +251,7 @@ export interface Prompt {
   concept: string
   style: string
   brief?: Brief | null
+  base_prompt?: string // in chat replies: one model-ready prompt for the direction, to copy
 }
 
 /** What one model was (or would be) sent for one direction. */

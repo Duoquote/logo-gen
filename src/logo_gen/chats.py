@@ -193,6 +193,17 @@ def touch(chat_id: str) -> None:
 # ── Messages ─────────────────────────────────────────────────────────
 
 
+def _with_base_prompts(prompts: list[dict]) -> list[dict]:
+    """Add each direction's copyable prompt. Worked out on read, so older replies have one too."""
+    from logo_gen.prompting import brief as briefs
+    from logo_gen.prompting.render import base_prompt
+
+    for p in prompts:
+        if isinstance(p, dict) and briefs.is_brief(p.get("brief")):
+            p["base_prompt"] = base_prompt(p["brief"])
+    return prompts
+
+
 def _message(r) -> dict:
     return {
         "id": r["id"],
@@ -202,7 +213,7 @@ def _message(r) -> dict:
         "content": r["content"],
         "reasoning": r["reasoning"] or "",
         "images": json.loads(r["images"] or "[]"),
-        "prompts": json.loads(r["prompts"] or "[]"),
+        "prompts": _with_base_prompts(json.loads(r["prompts"] or "[]")),
         "status": r["status"] or "done",
         "error": r["error"] or "",
         "model": r["model"] or "",
