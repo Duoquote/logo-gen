@@ -474,6 +474,8 @@ def _money(x: float) -> str:
 async def auto_round(chat_id: str, message_id: int, prompts: list[dict], history: list[dict]) -> str:
     """Render a designer reply's directions right away, as a server job. Returns a line for the reply.
 
+    Only runs when "Generate automatically" is on (Settings, or the chat's own switch).
+
     Uses the selected image models and images per direction (Settings, or the composer), within the
     per-model caps. Models that can't run here are skipped with a reason. When the round's estimated
     cloud cost is more than the key has left under its spending limit, the cloud models are skipped too.
@@ -713,7 +715,8 @@ async def clear_preferences(chat_id: str | None = None, scope: str | None = None
 class ChatIn(BaseModel):
     title: str | None = None
     pinned: bool | None = None
-    ask_first: bool | None = None  # ask questions before proposing and rendering; unset follows the setting
+    ask_first: bool | None = None  # ask questions before proposing; unset follows the setting
+    auto_generate: bool | None = None  # render each reply's directions right away; unset follows the setting
 
 
 class MessageIn(BaseModel):
@@ -801,9 +804,11 @@ async def open_chat(chat_id: str):
 
 @app.patch("/api/chats/{chat_id}")
 async def update_chat(chat_id: str, body: ChatIn):
-    """Rename or pin a chat, or set whether its designer asks questions before generating (ask_first)."""
+    """Rename or pin a chat, or set its designer switches: ask questions before proposing (ask_first),
+    and render each reply's directions right away (auto_generate)."""
     _chat_or_404(chat_id)
-    return chats.update(chat_id, title=body.title, pinned=body.pinned, ask_first=body.ask_first)
+    return chats.update(chat_id, title=body.title, pinned=body.pinned, ask_first=body.ask_first,
+                        auto_generate=body.auto_generate)
 
 
 @app.delete("/api/chats/{chat_id}")

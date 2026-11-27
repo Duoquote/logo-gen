@@ -544,6 +544,20 @@ def render(
     return Rendered(model, p.id, p.name, p.style, prompt, negative if p.negative else "", params, notes)
 
 
+def base_prompt(b: Brief | dict) -> str:
+    """One model-agnostic prompt for a brief, in the default profile's plain phrasing.
+
+    It's what the designer's copy button gives you, to paste into the Generate page. Generating
+    from the brief itself still gives each model its own phrasing."""
+    from logo_gen.prompting.profiles import DEFAULT
+
+    if isinstance(b, dict):
+        b = briefs.from_dict(b)
+    b = replace(b, subject=drawable(b.subject))
+    prompt, _, _ = render_natural(b, DEFAULT, b.wants_transparent, [])
+    return prompt
+
+
 FRAME = {
     "natural": "Flat vector logo mark, a single mark centered with generous padding on a plain white background.",
     "structured": "Make it a flat vector logo mark: a single mark, centered with generous padding on a plain white background.",

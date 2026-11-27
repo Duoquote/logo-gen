@@ -38,10 +38,12 @@ Keep it to the name; no taglines. Use an empty string for symbols.
 # How the designer opens a conversation. Acting first is the default: people
 # came to see logos, and a few directions on screen answer more questions
 # than a questionnaire does. ask_before_generating (Settings, or per chat)
-# brings back the questions-first behavior.
+# brings back the questions-first behavior. Whether directions render on their
+# own is a separate switch (generate_automatically), so neither prompt
+# promises it.
 ACT_FIRST = """\
 Act first. If the message says what the logo is for (a name or subject, plus what it \
-is), propose directions right away; they are rendered as soon as you reply. Fill \
+is), propose directions right away. Fill \
 anything unspecified (audience, personality, mark type, colors, where it's used) with \
 what a good designer would choose, and state those defaults in one short line before \
 the directions. After the directions you may add one or two short, optional questions \

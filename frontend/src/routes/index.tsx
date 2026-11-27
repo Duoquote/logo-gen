@@ -20,23 +20,25 @@ import { formatUsd } from "@/lib/format"
 import { useImages, useJob, useQuickGenerate, useSettings, useUpdateSettings } from "@/lib/queries"
 
 export const Route = createFileRoute("/")({
-  validateSearch: (s: Record<string, unknown>): { job?: string; image?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { job?: string; image?: string; prompt?: string } => ({
     job: typeof s.job === "string" ? s.job : undefined,
     image: typeof s.image === "string" ? s.image : undefined,
+    // A finished prompt from the designer's "Open in Generate". It goes out as written.
+    prompt: typeof s.prompt === "string" ? s.prompt : undefined,
   }),
   component: GeneratePage,
 })
 
 function GeneratePage() {
-  const { job: jobId, image } = Route.useSearch()
+  const { job: jobId, image, prompt: given } = Route.useSearch()
   const navigate = Route.useNavigate()
   const settings = useSettings()
   const update = useUpdateSettings()
   const start = useQuickGenerate()
   const job = useJob(jobId)
   const refs = useReferenceUploads()
-  const [brief, setBrief] = useState("")
-  const [enhance, setEnhance] = useState(true)
+  const [brief, setBrief] = useState(given ?? "")
+  const [enhance, setEnhance] = useState(!given)
 
   const s = settings.data?.settings
   const directions = enhance ? (s?.variations ?? 4) : 1

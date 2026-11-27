@@ -60,6 +60,7 @@ export interface Settings {
   transparent_background: boolean
   use_global_taste: boolean
   ask_before_generating: boolean
+  generate_automatically: boolean
   max_images_cloud: number
   max_images_local: number
   model_caps: Record<string, number>
@@ -250,6 +251,7 @@ export interface Prompt {
   concept: string
   style: string
   brief?: Brief | null
+  base_prompt?: string // in chat replies: one model-ready prompt for the direction, to copy
 }
 
 /** What one model was (or would be) sent for one direction. */
@@ -383,6 +385,7 @@ export interface Chat {
   updated_at: number
   pinned: boolean
   ask_first: boolean | null // null follows Settings
+  auto_generate: boolean | null // null follows Settings
   active_leaf: number | null
   messages: ChatMessage[]
   spend: Spend

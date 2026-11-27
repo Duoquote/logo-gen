@@ -164,9 +164,24 @@ function ChatCard({ s }: { s: Settings }) {
           <span>
             Ask questions before generating
             <span className="block text-muted-foreground">
-              Off (the default): the designer proposes directions and renders them right away with the image models you
-              picked, then asks a question or two you can ignore. On: it asks first and waits for you to press Generate.
-              Each chat can override this from its options menu.
+              Off (the default): the designer proposes directions right away, then asks a question or two you can
+              ignore. On: it asks first. Each chat can override this from its options menu.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-xs">
+          <Switch
+            checked={s.generate_automatically}
+            onCheckedChange={(v) => update.mutate({ generate_automatically: v })}
+            className="mt-0.5"
+          />
+          <span>
+            Generate automatically
+            <span className="block text-muted-foreground">
+              Off (the default): a reply ends with its directions and their prompts. You pick which ones, check the
+              models and count, and press Generate. On: the directions render as soon as the reply arrives, and the
+              reply says how many images that is and about what it costs. Paid models are skipped when your OpenRouter
+              key's limit can't cover the round. Each chat can override this from its options menu.
             </span>
           </span>
         </label>
