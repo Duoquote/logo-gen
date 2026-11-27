@@ -231,24 +231,39 @@ def _windows_parents() -> dict[int, tuple[int, str]]:
     return out
 
 
-def _starter_pid() -> int:
-    """The process that started us, skipping the python.exe trampolines venvs use on Windows."""
+_SYSTEM = {"explorer.exe", "services.exe", "svchost.exe", "wininit.exe", "winlogon.exe", "system", "csrss.exe"}
+
+
+def _watched_pids() -> list[int]:
+    """uv, which started us (past the python.exe trampolines venvs use on Windows), and the shells above it.
+
+    Watching the shells matters: on Windows, ending a shell doesn't end what it
+    started, so killing the outer shell leaves the inner one and uv running.
+    """
     if not IS_WIN:
-        return os.getppid()
+        return [os.getppid()]
     procs = _windows_parents()
     pid = os.getppid()
     seen = set()
     while pid in procs and procs[pid][1] == "python.exe" and pid not in seen:
         seen.add(pid)
         pid = procs[pid][0]
-    return pid
+    # Then up to three shells or terminals above uv, stopping at long-lived system processes.
+    out = [pid]
+    while len(out) < 4 and pid in procs:
+        pid = procs[pid][0]
+        if pid not in procs or procs[pid][1] in _SYSTEM or pid in out:
+            break
+        out.append(pid)
+    return out
 
 
 def exit_with_parent() -> None:
-    """Exit when whatever started us (uv) goes away, so the server doesn't outlive it."""
+    """Exit when whatever started us goes away, so the server doesn't outlive it."""
     import threading
 
-    parent = _starter_pid()
+    watched = _watched_pids()
+    parent = watched[0]
 
     def watch() -> None:
         if IS_WIN:
@@ -256,10 +271,11 @@ def exit_with_parent() -> None:
 
             k32 = ctypes.WinDLL("kernel32", use_last_error=True)
             k32.OpenProcess.restype = ctypes.c_void_p
-            handle = k32.OpenProcess(0x00100000, False, parent)  # SYNCHRONIZE
-            if not handle:
+            handles = [h for h in (k32.OpenProcess(0x00100000, False, pid) for pid in watched) if h]  # SYNCHRONIZE
+            if not handles:
                 return
-            k32.WaitForSingleObject(ctypes.c_void_p(handle), 0xFFFFFFFF)
+            arr = (ctypes.c_void_p * len(handles))(*handles)
+            k32.WaitForMultipleObjects(len(handles), arr, False, 0xFFFFFFFF)  # any of them
         else:
             while os.getppid() == parent:
                 time.sleep(2)
