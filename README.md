@@ -2,7 +2,7 @@
 
 # logo-gen
 
-A local web app for making logo marks and app icons with image models. You describe the thing, a chat model writes a few distinct prompt directions, and image models render them. It works with cloud models through OpenRouter and with local models on your own GPU.
+A local web app for making logo marks and app icons with image models. You describe the thing, a chat model writes a few distinct design briefs, and each image model gets the brief rewritten in the prompt style it reads best. It works with cloud models through OpenRouter and with local models on your own GPU.
 
 I built it because I kept making icons for small projects and got tired of copying prompts between a chat window and an image tool.
 
@@ -29,14 +29,30 @@ Options: `--port 8000`, `--host 0.0.0.0` (it only listens on localhost by defaul
 
 ## What's in it
 
-- Generate: type a brief, pick image models, press Generate. The chat model writes 4 directions (different ideas, not the same idea in four colors) and each one is rendered. Images show up as they finish, with a progress bar and a cancel button.
-- Designer: a chat that asks a couple of questions or goes straight to directions. You tick the directions you like and render them next to the chat. Reference images go to the chat model and to image models that accept them.
+- Generate: type a brief, pick image models, press Generate. The chat model writes 4 directions (different ideas, not the same idea in four colors) and each one is rendered. Images show up as they finish, with a progress bar and a cancel button. Under the progress bar, "Prompts sent" shows exactly what each model got.
+- Designer: a chat that asks a few questions (name, what it is, who it's for, mark type, colors, where it's used) or goes straight to directions. You tick the directions you like and render them next to the chat. Reference images go to the chat model and to image models that accept them.
+- Every image keeps the prompt it was made with. You can edit it in the image dialog and run the edited version, and the design brief behind it is one click away.
 - Gallery: everything you made, with search and favorites. Each image can be downloaded (PNG, or SVG from vector models), varied, upscaled, or have its background removed. Upscales and background removals don't replace anything. They stay under the original as candidates, so you can try a few methods, compare them side by side or flip between them, and mark the one you want as the version to use. The gallery and the download button then use that version.
 - Models: the live OpenRouter catalog split into image models and chat models, with prices, context length, modalities and filters. Also the local models, with install buttons.
 
 ![Designer](screenshots/designer.png)
 
 ![An image next to a background-removed candidate, with its other versions and the tools](screenshots/image.png)
+
+## How prompts are written
+
+Image models read prompts very differently. GPT Image follows a labeled spec, Gemini and FLUX want a short paragraph, Recraft wants the style in the prompt and the colors as parameters, and SD-Turbo only reads about 25 keywords. Before this, every model got the same prompt, written for none of them in particular.
+
+So it's two steps now:
+
+1. The designer writes a design brief per direction: mark type, subject in concrete shapes, composition, shape language, palette with hex values, style, background, the exact text (or none) and what to avoid. It doesn't know which model will run it.
+2. A renderer turns the brief into a prompt per model, using a profile for that model family in `src/logo_gen/prompting/profiles.py`. The profile says which prompt style to use, how long a prompt the model actually reads, whether it takes a negative prompt, how well it draws text, and which request options help (for example `quality=medium` on GPT Image, the palette as RGB `controls` on Recraft, web grounding off on FLUX 3). Models we don't have a profile for get matched by provider, then fall back to a plain paragraph.
+
+`research/prompting-2026.md` has the per-model notes and sources behind the profiles.
+
+The designer also learns from you. Likes, dislikes, picks and favorites update a small profile for the chat: which mark types, styles, shapes, colors and models you reacted to. When you type feedback like "thicker lines, no gradients", the designer stores those phrases too. It reads a summary before writing new briefs, and your "less of" phrases go into the prompts. Settings shows what it learned across chats, and you can turn that part off or clear it.
+
+I compared the old and new prompts on Recraft, FLUX.2 klein, Gemini 2.5 Flash Image and Z-Image Turbo, with contact sheets in `research/eval/`. The new ones follow the requested mark type better (a wordmark stays a wordmark) and stopped hex codes showing up as text. On those four models the old prompts were already decent, though, so don't expect a night and day difference. Z-Image also still fills the frame more than I'd like.
 
 ## OpenRouter
 
