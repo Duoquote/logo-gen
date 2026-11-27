@@ -10,7 +10,6 @@ from typing import AsyncIterator
 
 from logo_gen.clients import claude_cli, local_llm, openrouter
 from logo_gen.config import get_settings
-
 from logo_gen.prompting import brief as briefs
 from logo_gen.prompting import preferences
 
