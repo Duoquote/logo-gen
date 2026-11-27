@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import type { Brief, ImageDetail, RenderedPrompt } from "@/lib/api"
 import { shortModel } from "@/lib/format"
-import { useJob, useRegenerate } from "@/lib/queries"
+import { useJob, useRerunPrompt } from "@/lib/queries"
 
 /** The brief, as a short list of labeled lines. */
 export function BriefView({ brief }: { brief: Brief }) {
@@ -73,7 +73,7 @@ export function PromptDetails({ img }: { img: ImageDetail }) {
   const [negative, setNegative] = useState(img.negative_prompt ?? "")
   const [count, setCount] = useState("2")
   const [jobId, setJobId] = useState<string | null>(null)
-  const regenerate = useRegenerate()
+  const regenerate = useRerunPrompt()
   const job = useJob(jobId)
 
   if (!img.prompt) return null

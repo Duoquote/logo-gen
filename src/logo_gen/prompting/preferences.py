@@ -12,10 +12,12 @@ is small, so that's cheap, and it means undoing a vote is just deleting it.
 Scopes: ``chat:<id>`` for one chat, and ``global`` for a taste profile across
 chats (Settings can turn the global one off).
 
-Integration point for the chat UI: call ``apply_event(FeedbackEvent(...))``
-when the user likes, dislikes or picks an image, or POST the same fields to
-``/api/preferences/events``. Favorites in the image dialog already count as
-likes.
+Where reactions come from: the designer chat's thumbs and "Use this
+direction" write to the ``feedback_events`` table (``POST /api/feedback``).
+``sync_feedback()`` reads that table from a cursor kept in ``app_state`` and
+applies each new event here. It runs after every ``POST /api/feedback`` and
+at startup, so reactions stored while this layer wasn't running still count.
+The table stays the source of truth; ``taste_votes`` is derived from it.
 """
 
 from __future__ import annotations
@@ -33,6 +35,9 @@ from logo_gen.config import get_settings
 Kind = Literal["like", "dislike", "pick", "clear"]
 WEIGHTS = {"pick": 2.0, "like": 1.0, "dislike": -1.0}
 GLOBAL = "global"
+# feedback_events kinds -> ours. "unrate" clears a thumbs rating.
+FROM_FEEDBACK = {"like": "like", "dislike": "dislike", "pick": "pick", "unrate": "clear"}
+CURSOR_KEY = "taste.feedback_cursor"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS taste_votes (
@@ -54,14 +59,15 @@ CREATE TABLE IF NOT EXISTS taste_notes (
 CREATE INDEX IF NOT EXISTS taste_notes_scope ON taste_notes(scope, id);
 """
 
-_ready = False
+_ready: object | None = None  # the connection our tables were created on
 
 
 def _db() -> None:
     global _ready
-    if not _ready:
-        library.conn().executescript(SCHEMA)
-        _ready = True
+    c = library.conn()
+    if _ready is not c:
+        c.executescript(SCHEMA)
+        _ready = c
 
 
 def chat_scope(chat_id: str) -> str:
@@ -138,18 +144,53 @@ def apply_event(ev: FeedbackEvent) -> dict | None:
     if img.get("parent_id") and img.get("kind") != "generated":
         img = library.get_image(img["parent_id"]) or img  # an upscale or cleanup counts for its original
     chat_id = ev.chat_id or img.get("chat_id")
+    if ev.kind not in WEIGHTS and ev.kind != "clear":
+        raise ValueError(f"Unknown feedback kind {ev.kind!r}")
     for scope in _scopes(chat_id) or [GLOBAL]:
+        rows = library._q("SELECT kind FROM taste_votes WHERE scope = ? AND image_id = ?", (scope, img["id"]))
+        current = rows[0]["kind"] if rows else None
+        # One vote per image. A pick is stronger than a thumbs up, so a like
+        # (or clearing the thumbs) after a pick keeps the pick; a dislike wins.
+        if current == "pick" and ev.kind in ("like", "clear"):
+            continue
         if ev.kind == "clear":
             library._x("DELETE FROM taste_votes WHERE scope = ? AND image_id = ?", (scope, img["id"]))
             continue
-        if ev.kind not in WEIGHTS:
-            raise ValueError(f"Unknown feedback kind {ev.kind!r}")
         library._x(
             """INSERT OR REPLACE INTO taste_votes (scope, image_id, kind, model, traits, created_at)
                VALUES (?, ?, ?, ?, ?, ?)""",
             (scope, img["id"], ev.kind, img.get("model") or "", json.dumps(traits_of(img)), ev.created_at),
         )
     return profile(chat_scope(chat_id) if chat_id else GLOBAL)
+
+
+def sync_feedback() -> int:
+    """Apply feedback_events rows newer than our cursor. Returns how many were applied."""
+    from logo_gen import chats
+
+    _db()
+    rows = library._q("SELECT value FROM app_state WHERE key = ?", (CURSOR_KEY,))
+    cursor = int(rows[0]["value"]) if rows else 0
+    applied = 0
+    while True:
+        events = chats.list_feedback(cursor, None, 500)
+        if not events:
+            break
+        for e in events:
+            cursor = e["id"]
+            kind = FROM_FEEDBACK.get(e["kind"])
+            if not kind or not e.get("image_id"):
+                continue
+            try:
+                apply_event(FeedbackEvent(kind, e["image_id"], e.get("chat_id"), e.get("created_at") or time.time()))  # type: ignore[arg-type]
+                applied += 1
+            except ValueError:
+                pass  # the image was deleted since
+        library._x(
+            "INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (CURSOR_KEY, str(cursor)),
+        )
+    return applied
 
 
 def add_notes(chat_id: str | None, more: list[str] | None = None, less: list[str] | None = None) -> None:

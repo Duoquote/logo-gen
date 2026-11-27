@@ -1,379 +1,331 @@
 import { useEffect, useRef, useState } from "react"
-import { createFileRoute } from "@tanstack/react-router"
-import { useQueryClient } from "@tanstack/react-query"
-import { BrainIcon, Loader2Icon, SendIcon, SquareIcon, WandSparklesIcon } from "lucide-react"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { ArrowDownIcon, MessageSquareDashedIcon, RefreshCwIcon } from "lucide-react"
 import { toast } from "sonner"
 
+import { AssistantMessage, Directions, UserMessage, type MessageHandlers } from "@/components/chat/message"
+import { Composer, type ComposerHandle } from "@/components/chat/composer"
+import { Outputs } from "@/components/chat/outputs"
 import { ImageDialog } from "@/components/image-dialog"
-import { ImageGrid } from "@/components/image-grid"
-import { JobProgress } from "@/components/job-progress"
-import { Markdown } from "@/components/markdown"
+import { LearnedButton } from "@/components/learned-panel"
 import { SpendLine } from "@/components/spend"
-import { ImageModelPicker } from "@/components/model-picker"
-import { ReferenceImages, useReferenceUploads } from "@/components/reference-images"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import { Textarea } from "@/components/ui/textarea"
-import { api, fileUrl, streamChat, type Chat, type ChatMessage, type Prompt } from "@/lib/api"
-import { maxPerDirection } from "@/lib/caps"
-import { useCostEstimate } from "@/lib/cost"
-import { formatUsd } from "@/lib/format"
-import { keys, useGenerate, useImages, useJob, useSettings, useUpdateSettings } from "@/lib/queries"
-import { cn } from "@/lib/utils"
-import { useQuery } from "@tanstack/react-query"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Input } from "@/components/ui/input"
+import { SidebarTrigger } from "@/components/ui/sidebar"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useLiveReply } from "@/hooks/use-live-reply"
+import { useStickToBottom } from "@/hooks/use-stick-to-bottom"
+import { api, ApiError, fileUrl, type Chat, type ChatMessage, type ChatOutput, type Prompt } from "@/lib/api"
+import {
+  openChat,
+  useChat,
+  useDeleteMessage,
+  useFeedback,
+  useGenerate,
+  useRegenerate,
+  useRestoreMessage,
+  useSendMessage,
+  useSetBranch,
+  useSettings,
+  useStopReply,
+  useUpdateChat,
+} from "@/lib/queries"
 
 export const Route = createFileRoute("/designer/$chatId")({
   component: ChatPage,
 })
 
-interface Pending {
-  user: { content: string; images: string[] }
-  reply: string
-  reasoning: string
-}
-
-const STARTERS = [
+const EXAMPLES = [
   "An icon for polytini, a small Python library for polygon geometry.",
   "A mark for a neighborhood coffee roaster. Warm, a bit retro.",
   "App icon for a privacy-first notes app. Calm, minimal.",
+  "A wordmark for Fieldnote, a tool for birdwatchers. No birds that look like Twitter.",
 ]
 
 function ChatPage() {
   const { chatId } = Route.useParams()
   const navigate = Route.useNavigate()
-  const qc = useQueryClient()
   const isNew = chatId === "new"
-  const [pending, setPending] = useState<Pending | null>(null)
-  const [input, setInput] = useState("")
-  const [jobFor, setJobFor] = useState<{ chat: string; id: string } | null>(null)
-  const jobId = jobFor?.chat === chatId ? jobFor.id : null
-  const setJobId = (id: string) => setJobFor({ chat: chatId, id })
+  const chat = useChat(chatId, !isNew)
+  const settings = useSettings()
+  const send = useSendMessage()
+  const regenerate = useRegenerate()
+  const stop = useStopReply()
+  const setBranch = useSetBranch()
+  const delMessage = useDeleteMessage()
+  const restoreMessage = useRestoreMessage()
+  const generate = useGenerate()
+  const feedback = useFeedback()
+  const composer = useRef<ComposerHandle>(null)
   const [openImage, setOpenImage] = useState<string | null>(null)
-  const abort = useRef<AbortController | null>(null)
-  const bottom = useRef<HTMLDivElement>(null)
-  const refs = useReferenceUploads()
+  const { scrollRef, contentRef, atBottom, toBottom } = useStickToBottom<HTMLDivElement, HTMLDivElement>()
 
-  const chat = useQuery({
-    queryKey: keys.chat(chatId),
-    queryFn: () => api.get<Chat>(`/chats/${chatId}`),
-    enabled: !isNew && !pending,
-  })
-  const results = useImages({ chat_id: chatId }, !isNew)
-  const job = useJob(jobId)
+  const data = isNew ? undefined : chat.data
+  const messages = data?.messages ?? []
+  const streamingMsg = messages.find((m) => m.status === "streaming")
+  const live = useLiveReply(chatId, streamingMsg)
+  const busy = !!data?.running || !!streamingMsg
+  const notFound = chat.error instanceof ApiError && chat.error.status === 404
 
+  // Remember this chat, so /designer opens it next time (from any browser).
+  const loaded = !!data
   useEffect(() => {
-    bottom.current?.scrollIntoView({ block: "end" })
-  }, [chat.data?.messages.length, pending?.reply, pending?.reasoning.length])
+    if (!isNew && loaded) openChat(chatId)
+  }, [chatId, isNew, loaded])
 
-  const messages = chat.data?.messages ?? []
-  const allRefs = messages.flatMap((m) => m.images)
+  // A new chat, or a different one: start at the bottom.
+  useEffect(() => {
+    toBottom()
+  }, [chatId, loaded, toBottom])
 
-  const send = async (text: string) => {
-    const content = text.trim()
-    if (!content || pending) return
-    let id = chatId
-    if (isNew) {
-      const created = await api.post<Chat>("/chats", {})
-      id = created.id
-      qc.setQueryData(keys.chat(id), { ...created, messages: [] })
-    }
-    const images = refs.refs.map((r) => r.path)
-    setInput("")
-    refs.clear()
-    setPending({ user: { content, images }, reply: "", reasoning: "" })
-    if (isNew) navigate({ params: { chatId: id }, replace: true })
-
-    const ctrl = new AbortController()
-    abort.current = ctrl
+  const onSend = async (text: string, images: string[]) => {
     try {
-      await streamChat(
-        id,
-        { content, images },
-        (ev) => {
-          if (ev.type === "token") setPending((p) => p && { ...p, reply: p.reply + ev.content })
-          else if (ev.type === "reasoning") setPending((p) => p && { ...p, reasoning: p.reasoning + ev.content })
-          else if (ev.type === "error") toast.error(ev.message)
-        },
-        ctrl.signal,
-      )
-    } catch (e) {
-      if ((e as Error).name !== "AbortError") toast.error((e as Error).message)
-    } finally {
-      abort.current = null
-      await qc.refetchQueries({ queryKey: keys.chat(id) })
-      qc.invalidateQueries({ queryKey: keys.chats })
-      setPending(null)
+      let id = chatId
+      if (isNew) id = (await api.post<Chat>("/chats", {})).id
+      await send.mutateAsync({ chatId: id, content: text, images })
+      if (isNew) navigate({ to: "/designer/$chatId", params: { chatId: id }, replace: true })
+      toBottom()
+      return true
+    } catch {
+      return false // the mutation already showed the error
     }
   }
 
+  const h: MessageHandlers = {
+    busy,
+    onEdit: (msg, text) => send.mutate({ chatId, content: text, images: msg.images, edit_of: msg.id }),
+    onRegenerate: (msg) => regenerate.mutate({ chatId, messageId: msg.id }),
+    onSwitch: (id) => setBranch.mutate({ chatId, messageId: id }),
+    onDelete: (msg) =>
+      delMessage.mutate(
+        { chatId, messageId: msg.id },
+        {
+          onSuccess: ({ stamp }) =>
+            toast("Deleted from here", {
+              description: "That message and everything after it, in every branch.",
+              action: { label: "Undo", onClick: () => restoreMessage.mutate({ chatId, messageId: msg.id, stamp }) },
+              duration: 8000,
+            }),
+        },
+      ),
+  }
+
+  const refsInChat = messages.flatMap((m) => m.images)
+  const runGenerate = (msg: ChatMessage, prompts: Prompt[], per: number) =>
+    generate.mutate(
+      {
+        prompts,
+        models: settings.data?.settings.image_models,
+        images_per_prompt: per,
+        references: refsInChat,
+        chat_id: chatId,
+        message_id: msg.id,
+      },
+      { onSuccess: () => chat.refetch() },
+    )
+
+  const useDirection = (img: ChatOutput) => {
+    feedback.mutate({ kind: "pick", image_id: img.id, chat_id: chatId })
+    composer.current?.addRefs([{ path: img.path, url: fileUrl(img.path), name: img.concept || "picked" }])
+    composer.current?.setText(
+      `Let's go with "${img.concept || "this one"}" (attached). Keep what works and give me a few tighter takes on it.`,
+    )
+  }
+
+  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant")
+  const orphanJobs = (data?.jobs ?? []).filter((j) => j.message_id == null || !messages.some((m) => m.id === j.message_id))
+  const last = messages.at(-1)
+
   return (
-    <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_minmax(280px,38%)]">
-      <section className="flex min-h-0 flex-col border-r">
-        {!isNew && chat.data && (
-          <div className="flex items-center gap-3 border-b px-4 py-2">
-            <span className="min-w-0 flex-1 truncate text-xs font-medium">{chat.data.title || "Untitled"}</span>
-            <SpendLine spend={chat.data.spend} label="This chat" />
-          </div>
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="flex h-11 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
+        <SidebarTrigger aria-label="Toggle chat list" />
+        {data ? <ChatTitle chat={data} /> : <span className="flex-1 text-xs text-muted-foreground">{isNew ? "New chat" : ""}</span>}
+        {data && (
+          <span className="hidden shrink-0 sm:inline">
+            <SpendLine spend={data.spend} label="This chat" />
+          </span>
         )}
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto flex max-w-3xl flex-col gap-5 p-6">
-            {messages.length === 0 && !pending && (
+        {data && <LearnedButton chatId={data.id} />}
+      </header>
+
+      <div className="relative min-h-0 flex-1">
+        <div ref={scrollRef} className="h-full overflow-y-auto">
+          <div ref={contentRef} className="mx-auto flex max-w-3xl flex-col gap-6 px-3 py-5 sm:px-6">
+            {!isNew && chat.isPending && <ThreadSkeleton />}
+            {notFound && (
               <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <MessageSquareDashedIcon />
+                  </EmptyMedia>
+                  <EmptyTitle>This chat doesn't exist</EmptyTitle>
+                  <EmptyDescription>It may have been deleted.</EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  <Button asChild size="sm">
+                    <Link to="/designer/$chatId" params={{ chatId: "new" }}>
+                      Start a new chat
+                    </Link>
+                  </Button>
+                </EmptyContent>
+              </Empty>
+            )}
+            {chat.isError && !notFound && (
+              <div role="alert" className="flex items-center gap-2 border p-3 text-xs">
+                <span className="flex-1">Couldn't load this chat: {chat.error.message}</span>
+                <Button size="xs" variant="outline" onClick={() => chat.refetch()}>
+                  <RefreshCwIcon />
+                  Retry
+                </Button>
+              </div>
+            )}
+            {(isNew || (data && messages.length === 0)) && (
+              <Empty className="border-0">
                 <EmptyHeader>
                   <EmptyTitle>Design a logo by talking it through</EmptyTitle>
                   <EmptyDescription>
-                    Describe what it is for. The designer asks a few questions or goes straight to directions, and you
-                    pick which ones to render.
+                    Say what it's for. The designer asks a couple of questions or goes straight to directions. You tick the
+                    ones you like and render them right here.
                   </EmptyDescription>
                 </EmptyHeader>
-                <div className="flex flex-col gap-2">
-                  {STARTERS.map((s) => (
-                    <Button key={s} variant="outline" size="sm" className="h-auto py-2 whitespace-normal" onClick={() => send(s)}>
-                      {s}
+                <EmptyContent className="grid gap-2 sm:grid-cols-2">
+                  {EXAMPLES.map((ex) => (
+                    <Button
+                      key={ex}
+                      variant="outline"
+                      size="sm"
+                      className="h-auto justify-start py-2 text-left whitespace-normal"
+                      onClick={() => onSend(ex, [])}
+                      disabled={send.isPending}
+                    >
+                      {ex}
                     </Button>
                   ))}
-                </div>
+                </EmptyContent>
               </Empty>
             )}
-            {messages.map((m) => (
-              <Message
-                key={m.id}
-                msg={m}
-                chatId={chatId}
-                references={allRefs}
-                onJob={setJobId}
-                busy={job.data?.status === "running"}
-              />
-            ))}
-            {pending && (
-              <>
-                <UserBubble content={pending.user.content} images={pending.user.images} />
-                <div className="flex flex-col gap-2">
-                  {pending.reasoning && !pending.reply && (
-                    <details className="text-xs text-muted-foreground" open>
-                      <summary className="flex cursor-pointer items-center gap-1.5">
-                        <BrainIcon className="size-3.5 animate-pulse" /> Thinking
-                      </summary>
-                      <p className="mt-1 max-h-32 overflow-hidden whitespace-pre-wrap opacity-70">
-                        {pending.reasoning.slice(-600)}
-                      </p>
-                    </details>
-                  )}
-                  {pending.reply ? (
-                    <Markdown>{pending.reply.replace(/```json[\s\S]*$/, "")}</Markdown>
-                  ) : (
-                    !pending.reasoning && <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
-                  )}
-                  {pending.reply.includes("```json") && (
-                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Loader2Icon className="size-3 animate-spin" /> Writing prompts
-                    </span>
-                  )}
-                </div>
-              </>
-            )}
-            <div ref={bottom} />
-          </div>
-        </div>
-        <div className="border-t p-3">
-          <div className="mx-auto flex max-w-3xl flex-col gap-2">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault()
-                  send(input)
-                }
-              }}
-              onPaste={(e) => {
-                const files = Array.from(e.clipboardData.files)
-                if (files.length) refs.add(files)
-              }}
-              placeholder={messages.length ? "Feedback, or ask for new directions" : "Describe the brand or project"}
-              rows={2}
-              className="max-h-48 text-sm"
-            />
-            <div className="flex items-center justify-between">
-              <ReferenceImages
-                refs={refs.refs}
-                uploading={refs.uploading}
-                onAdd={refs.add}
-                onRemove={(p) => refs.setRefs((r) => r.filter((x) => x.path !== p))}
-              />
-              {pending ? (
-                <Button size="sm" variant="outline" onClick={() => abort.current?.abort()}>
-                  <SquareIcon />
-                  Stop
-                </Button>
+            {messages.map((m, i) =>
+              m.role === "user" ? (
+                <UserMessage key={m.id} msg={m} h={h} />
               ) : (
-                <Button size="sm" onClick={() => send(input)} disabled={!input.trim()}>
-                  <SendIcon />
-                  Send
+                <AssistantMessage
+                  key={m.id}
+                  msg={m}
+                  live={m.id === streamingMsg?.id ? live : null}
+                  isLast={i === messages.length - 1}
+                  h={h}
+                  directions={
+                    m.prompts.length > 0 && m.status !== "streaming" ? (
+                      <Directions prompts={m.prompts} busy={generate.isPending} onGenerate={(p, per) => runGenerate(m, p, per)} />
+                    ) : null
+                  }
+                >
+                  <Outputs
+                    chatId={chatId}
+                    messageId={m.id}
+                    images={m.outputs}
+                    jobs={[
+                      ...(data?.jobs ?? []).filter((j) => j.message_id === m.id),
+                      ...(m.id === lastAssistant?.id ? orphanJobs : []),
+                    ]}
+                    onOpen={setOpenImage}
+                    onUseDirection={useDirection}
+                  />
+                </AssistantMessage>
+              ),
+            )}
+            {last?.role === "user" && !busy && (
+              <div role="alert" className="flex items-center gap-2 border p-2 text-xs text-muted-foreground">
+                <span className="flex-1">No reply to this message.</span>
+                <Button size="xs" variant="outline" onClick={() => h.onRegenerate(last)}>
+                  <RefreshCwIcon />
+                  Get a reply
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
-      </section>
-
-      <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto p-4">
-        <h2 className="font-heading text-sm font-semibold">Results</h2>
-        {job.data && <JobProgress job={job.data} />}
-        {results.data?.length || job.data?.status === "running" ? (
-          <ImageGrid
-            images={results.data ?? []}
-            pending={job.data?.status === "running" ? Math.max(0, job.data.total - job.data.image_ids.length) : 0}
-            onOpen={setOpenImage}
-            className="grid-cols-[repeat(auto-fill,minmax(140px,1fr))]"
-          />
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            When the designer proposes directions, tick the ones you like and press Generate. Images land here.
-          </p>
+        {!atBottom && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-background shadow-sm"
+            onClick={() => toBottom(true)}
+          >
+            <ArrowDownIcon />
+            Jump to latest
+          </Button>
         )}
-      </aside>
+      </div>
+
+      <div className="shrink-0 border-t p-2 sm:p-3">
+        <div className="mx-auto max-w-3xl">
+          <Composer
+            ref={composer}
+            placeholder={messages.length ? "Feedback, or ask for new directions" : "Describe the brand or project"}
+            busy={busy}
+            sending={send.isPending}
+            stopping={stop.isPending}
+            onSend={onSend}
+            onStop={() => data?.running && stop.mutate({ chatId, messageId: data.running })}
+          />
+        </div>
+      </div>
       <ImageDialog imageId={openImage} onOpenChange={(o) => !o && setOpenImage(null)} onSelect={setOpenImage} />
     </div>
   )
 }
 
-function UserBubble({ content, images }: { content: string; images: string[] }) {
+function ChatTitle({ chat }: { chat: Chat }) {
+  const update = useUpdateChat()
+  const [editing, setEditing] = useState(false)
+  const [title, setTitle] = useState(chat.title)
+  if (editing) {
+    const save = () => {
+      setEditing(false)
+      if (title.trim() && title.trim() !== chat.title) update.mutate({ id: chat.id, title: title.trim() })
+    }
+    return (
+      <Input
+        autoFocus
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") save()
+          if (e.key === "Escape") setEditing(false)
+        }}
+        aria-label="Chat title"
+        className="h-7 flex-1 text-xs"
+      />
+    )
+  }
   return (
-    <div className="ml-auto flex max-w-[85%] flex-col items-end gap-2">
-      {images.length > 0 && (
-        <div className="flex gap-1">
-          {images.map((p) => (
-            <img key={p} src={fileUrl(p)} alt="" className="size-14 border object-cover" />
-          ))}
-        </div>
-      )}
-      <div className="bg-muted px-3 py-2 text-sm whitespace-pre-wrap">{content}</div>
-    </div>
+    <button
+      type="button"
+      title="Rename"
+      onClick={() => {
+        setTitle(chat.title)
+        setEditing(true)
+      }}
+      className="min-w-0 flex-1 truncate text-left text-xs font-medium hover:underline"
+    >
+      {chat.title || "Untitled"}
+    </button>
   )
 }
 
-function Message({
-  msg,
-  chatId,
-  references,
-  onJob,
-  busy,
-}: {
-  msg: ChatMessage
-  chatId: string
-  references: string[]
-  onJob: (id: string) => void
-  busy: boolean
-}) {
-  if (msg.role === "user") return <UserBubble content={msg.content} images={msg.images} />
+function ThreadSkeleton() {
   return (
-    <div className="flex flex-col gap-3">
-      <Markdown>{msg.content}</Markdown>
-      {msg.prompts.length > 0 && (
-        <PromptPicker prompts={msg.prompts} chatId={chatId} references={references} onJob={onJob} busy={busy} />
-      )}
-    </div>
-  )
-}
-
-function PromptPicker({
-  prompts,
-  chatId,
-  references,
-  onJob,
-  busy,
-}: {
-  prompts: Prompt[]
-  chatId: string
-  references: string[]
-  onJob: (id: string) => void
-  busy: boolean
-}) {
-  const [selected, setSelected] = useState<Set<number>>(() => new Set(prompts.map((_, i) => i)))
-  const settings = useSettings()
-  const update = useUpdateSettings()
-  const generate = useGenerate()
-  const s = settings.data?.settings
-  const models = s?.image_models ?? []
-  const maxPer = s ? maxPerDirection(s, models, Math.max(1, selected.size)) : 1
-  const [perChoice, setPerChoice] = useState<number | null>(null)
-  const per = Math.min(perChoice ?? s?.images_per_prompt ?? 1, maxPer)
-  const estimate = useCostEstimate(models, selected.size * per)
-
-  const toggle = (i: number) =>
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(i)) next.delete(i)
-      else next.add(i)
-      return next
-    })
-
-  return (
-    <div className="flex flex-col gap-3 border p-3">
-      <div className="grid gap-2">
-        {prompts.map((p, i) => (
-          <label
-            key={i}
-            className={cn("flex cursor-pointer gap-3 p-2 hover:bg-muted", selected.has(i) && "bg-muted/60")}
-          >
-            <Checkbox checked={selected.has(i)} onCheckedChange={() => toggle(i)} className="mt-0.5" />
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-xs font-medium">
-                {p.concept}
-                {p.style && <span className="font-normal text-muted-foreground"> · {p.style}</span>}
-              </span>
-              <span className="text-xs text-muted-foreground">{p.prompt}</span>
-            </div>
-          </label>
-        ))}
+    <div className="flex flex-col gap-6" aria-label="Loading chat">
+      <Skeleton className="ml-auto h-10 w-2/3" />
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-5/6" />
+        <Skeleton className="h-4 w-2/3" />
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <ImageModelPicker
-          className="min-w-0 flex-1"
-          value={s?.image_models ?? []}
-          onChange={(v) => update.mutate({ image_models: v })}
-        />
-        <Select value={String(per)} onValueChange={(v) => setPerChoice(Number(v))}>
-          <SelectTrigger className="w-36" title={`Images per direction, per model. Capped at ${maxPer} by Settings, Limits.`}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Array.from({ length: Math.min(maxPer, 8) }, (_, i) => i + 1).map((n) => (
-              <SelectItem key={n} value={String(n)}>
-                {n} per direction
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          size="sm"
-          disabled={!selected.size || generate.isPending || busy || !s?.image_models.length}
-          onClick={() =>
-            generate.mutate(
-              {
-                prompts: prompts.filter((_, i) => selected.has(i)),
-                models: s?.image_models,
-                images_per_prompt: per,
-                references,
-                chat_id: chatId,
-              },
-              { onSuccess: (j) => onJob(j.id) },
-            )
-          }
-        >
-          {generate.isPending ? <Loader2Icon className="animate-spin" /> : <WandSparklesIcon />}
-          Generate {selected.size * per * Math.max(1, models.length)}
-        </Button>
-      </div>
-      <span className="text-[11px] text-muted-foreground">
-        {selected.size * per} per model
-        {models.length > 1 && ` across ${models.length} models`}
-        {estimate.cost !== null && estimate.cost > 0 && ` · about ${formatUsd(estimate.cost)}`}
-        {models.some((m) => m.startsWith("local/")) && " · local images are free"}
-      </span>
     </div>
   )
 }

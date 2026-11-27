@@ -15,7 +15,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from logo_gen import generator, library, paths, postprocess, prompt_engine, runtime, system, upscaler
+from logo_gen import chats, generator, library, paths, postprocess, prompt_engine, rankings, runtime, system, turns, upscaler
 from logo_gen.clients import claude_cli, local_llm, openrouter
 from logo_gen.clients.local_llm import LocalLLMError
 from logo_gen.clients.openrouter import OpenRouterError
@@ -42,6 +42,9 @@ IMAGE_TYPES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 async def lifespan(app: FastAPI):
     paths.ensure_dirs()
     library.conn()
+    turns.recover()
+    chats.purge()
+    preferences.sync_feedback()  # reactions stored while the prompt layer wasn't reading them
     await run_in_threadpool(library.import_existing)
     background = [asyncio.create_task(manager.refresh_remote()), asyncio.create_task(asyncio.to_thread(_warm_rembg))]
     if get_secret("OPENROUTER_KEY"):
@@ -89,6 +92,11 @@ async def _value_error(_: Request, e: ValueError):
     return JSONResponse({"error": str(e), "kind": "bad_request"}, status_code=400)
 
 
+@app.exception_handler(turns.TurnBusy)
+async def _turn_busy(_: Request, e: turns.TurnBusy):
+    return JSONResponse({"error": e.message, "kind": "busy"}, status_code=409)
+
+
 def _not_found(what: str) -> HTTPException:
     return HTTPException(404, f"{what} not found")
 
@@ -114,11 +122,13 @@ def _refs(rel_paths: list[str] | None) -> list[Path]:
 
 @app.get("/api/health")
 async def health():
+    """Liveness check: {"ok": true}."""
     return {"ok": True}
 
 
 @app.get("/api/system")
 async def system_info():
+    """This machine: OS, device (cuda, mps or cpu), GPU and VRAM, free disk, and library totals."""
     return system.info() | {"library": library.stats()}
 
 
@@ -131,11 +141,13 @@ def _secrets_status() -> dict:
 
 @app.get("/api/settings")
 async def read_settings():
+    """Current settings, plus which secrets are set (never their values)."""
     return {"settings": get_settings().model_dump(), "secrets": _secrets_status()}
 
 
 @app.put("/api/settings")
 async def write_settings(patch: dict[str, Any]):
+    """Change any subset of settings, e.g. {"image_models": [...], "images_per_prompt": 2}. Returns the full settings."""
     s = update_settings(patch)
     return {"settings": s.model_dump(), "secrets": _secrets_status()}
 
@@ -153,6 +165,7 @@ class SecretIn(BaseModel):
 
 @app.put("/api/secrets")
 async def write_secret(body: SecretIn):
+    """Set or clear OPENROUTER_KEY or HF_TOKEN in .env. An OpenRouter key is checked with OpenRouter first."""
     if body.name not in SECRET_KEYS:
         raise HTTPException(400, "Unknown secret")
     if body.name == "OPENROUTER_KEY" and body.value.strip():
@@ -167,13 +180,52 @@ async def write_secret(body: SecretIn):
 
 @app.get("/api/openrouter/key")
 async def openrouter_key():
+    """Whether the saved OpenRouter key works, what it has spent and its limit."""
     return await openrouter.key_status()
 
 
 @app.get("/api/openrouter/models")
 async def openrouter_models(force: bool = False):
+    """The live OpenRouter catalog, split into chat and image models, with prices and capabilities. Cached 10
+    minutes; force=true refetches.
+    """
     data = await openrouter.catalog(force=force)
     return {"fetched_at": data["fetched_at"], "chat": data["chat"], "image": data["image"], "stale": data.get("stale", False)}
+
+
+@app.get("/api/models/rankings")
+async def model_rankings(refresh: bool = False):
+    """Quality (LMArena), value and popularity (OpenRouter usage) for every image model we can use."""
+    key = get_secret("OPENROUTER_KEY")
+    board, pop, notes = await rankings.data(key or None, refresh=refresh)
+    models: list[dict] = []
+    if key:
+        try:
+            cat = await openrouter.catalog()
+            models += [{"id": m["id"], "price": m.get("price_per_image")} for m in cat["image"]]
+        except OpenRouterError as e:
+            notes.append(f"No OpenRouter prices: {e.message}")
+    # Ranks count only what you can use now; local models that aren't installed or can't run here get a score but no rank.
+    usable = {mid for mid, spec in MODELS.items() if manager.is_installed(spec) and spec.support(system.device_kind()) != "no"}
+    models += [{"id": f"{generator.LOCAL_PREFIX}{mid}", "price": 0.0} for mid in usable]
+    ranked = rankings.rank_models(models, board, pop)
+    for mid in MODELS.keys() - usable:
+        ranked |= {k: v | {"rank": None, "value": None, "pareto": False}
+                   for k, v in rankings.rank_models([{"id": f"{generator.LOCAL_PREFIX}{mid}", "price": 0.0}], board, None).items()}
+    return {
+        "source": board["source"] | {"bundled": bool(board.get("bundled")), "fetched_at": board.get("fetched_at")},
+        "popularity": pop["source"] if pop else None,
+        "notes": notes,
+        "formula": {
+            "elo_per_doubling": rankings.ELO_PER_DOUBLING,
+            "price_ref": rankings.PRICE_REF,
+            "price_floor": rankings.PRICE_FLOOR,
+        },
+        "models": ranked,
+        "recent": [r["model"] for r in library._q(
+            "SELECT model, MAX(created_at) AS t FROM images WHERE kind = 'generated' AND model != '' GROUP BY model ORDER BY t DESC LIMIT 5"
+        )],
+    }
 
 
 @app.get("/api/llm/local")
@@ -194,6 +246,7 @@ _last_refresh = 0.0
 
 @app.get("/api/local-models")
 async def list_local_models():
+    """Local models with install state, download progress, device support, batch size and caps."""
     global _last_refresh
     if time.time() - _last_refresh > manager.REMOTE_TTL:
         _last_refresh = time.time()
@@ -239,6 +292,7 @@ async def install_local_stack():
 
 @app.post("/api/local-models/{model_id}/calibrate")
 async def calibrate_local_model(model_id: str):
+    """Speed test for a local model: times batch sizes and peak VRAM. Returns a job; its result has the options."""
     spec = _spec(model_id)
     if not manager.is_installed(spec):
         raise ValueError(f"Install {spec.name} first.")
@@ -270,21 +324,25 @@ async def calibrate_local_model(model_id: str):
 
 @app.post("/api/local-models/{model_id}/install")
 async def install_local_model(model_id: str):
+    """Start or resume downloading a local model. Progress shows in GET /api/local-models."""
     return manager.start_install(_spec(model_id))
 
 
 @app.post("/api/local-models/{model_id}/cancel")
 async def cancel_local_model(model_id: str):
+    """Pause a download. Installing again resumes it."""
     return await manager.cancel_install(_spec(model_id))
 
 
 @app.delete("/api/local-models/{model_id}")
 async def uninstall_local_model(model_id: str):
+    """Delete a local model's files."""
     return await manager.uninstall(_spec(model_id))
 
 
 @app.post("/api/local-models/{model_id}/check-access")
 async def check_local_model(model_id: str):
+    """For gated models: whether HF_TOKEN can download it."""
     spec = _spec(model_id)
     await manager.access(spec, force=True)
     try:
@@ -299,11 +357,13 @@ async def check_local_model(model_id: str):
 
 @app.get("/api/jobs")
 async def list_jobs():
+    """Recent jobs, newest first."""
     return [j.to_dict() for j in jobs.list()]
 
 
 @app.get("/api/jobs/{job_id}")
 async def get_job(job_id: str):
+    """One job: status (running, done, error, cancelled), done/total, message, image_ids, cost, byok, notes, errors."""
     job = jobs.get(job_id)
     if not job:
         raise _not_found("Job")
@@ -312,6 +372,7 @@ async def get_job(job_id: str):
 
 @app.post("/api/jobs/{job_id}/cancel")
 async def cancel_job(job_id: str):
+    """Cancel a running job."""
     job = jobs.cancel(job_id)
     if not job:
         raise _not_found("Job")
@@ -341,6 +402,7 @@ class GenerateIn(BaseModel):
     images_per_prompt: int | None = None
     references: list[str] = Field(default_factory=list)
     chat_id: str | None = None
+    message_id: int | None = None  # the designer reply whose directions these are
 
 
 class QuickIn(BaseModel):
@@ -379,6 +441,7 @@ def _usable(model: str | None) -> bool:
 
 @app.post("/api/generate")
 async def generate(body: GenerateIn):
+    """Render your own prompts with the given (or default) image models. Returns a job."""
     prompts = [p.model_dump(exclude_none=True) for p in body.prompts if p.prompt.strip() or p.brief]
     if not prompts:
         raise ValueError("No prompts to generate.")
@@ -390,11 +453,16 @@ async def generate(body: GenerateIn):
         job.result["prompts"] = prompts
         await generator.run(job, prompts, models, body.images_per_prompt, refs, chat_id=body.chat_id)
 
-    return jobs.start("generate", title, fn).to_dict()
+    job = jobs.start("generate", title, fn)
+    if body.chat_id:
+        job.chat_id = body.chat_id
+        chats.link_job(job.id, body.chat_id, body.message_id, "generate")
+    return job.to_dict()
 
 
 @app.post("/api/generate/quick")
 async def quick_generate(body: QuickIn):
+    """Brief in: the chat model writes `count` directions, then each is rendered. Returns a job."""
     brief = body.brief.strip()
     if not brief:
         raise ValueError("Describe what the logo is for.")
@@ -425,6 +493,7 @@ class VariationIn(BaseModel):
 
 @app.post("/api/images/{image_id}/variations")
 async def variations(image_id: str, body: VariationIn):
+    """New images close to this one (mode remix writes new prompts; reroll keeps the prompt with new seeds). Returns a job."""
     img = library.get_image(image_id)
     if not img:
         raise _not_found("Image")
@@ -460,7 +529,12 @@ async def variations(image_id: str, body: VariationIn):
         job.result["source_id"] = image_id
         await generator.run(job, prompts, models, per, refs, chat_id=img.get("chat_id"), parent_id=image_id)
 
-    return jobs.start("variations", f"Variations of {img['concept'] or img['model']}", fn).to_dict()
+    job = jobs.start("variations", f"Variations of {img['concept'] or img['model']}", fn)
+    if img.get("chat_id"):
+        # Variations show up in the chat under the same reply as the image they vary.
+        job.chat_id = img["chat_id"]
+        chats.link_job(job.id, img["chat_id"], chats.job_message(img.get("job_id")), "variations")
+    return job.to_dict()
 
 
 class RegenerateIn(BaseModel):
@@ -471,7 +545,7 @@ class RegenerateIn(BaseModel):
 
 
 @app.post("/api/images/{image_id}/regenerate")
-async def regenerate(image_id: str, body: RegenerateIn):
+async def regenerate_image(image_id: str, body: RegenerateIn):
     """Run a hand-edited prompt on this image's model. Results land under it as variations."""
     img = library.get_image(image_id)
     if not img:
@@ -484,13 +558,17 @@ async def regenerate(image_id: str, body: RegenerateIn):
                  "concept": img["concept"], "style": img["style"], "brief": img.get("brief")}
 
     async def fn(job):
-        job.chat_id = img.get("chat_id")
         job.result["prompts"] = [direction]
         job.result["source_id"] = image_id
         await generator.run(job, [direction], models, max(1, min(body.count, 8)), chat_id=img.get("chat_id"),
                             parent_id=image_id)
 
-    return jobs.start("variations", f"Edited prompt: {img['concept'] or model}", fn).to_dict()
+    job = jobs.start("variations", f"Edited prompt: {img['concept'] or model}", fn)
+    if img.get("chat_id"):
+        # Like variations: the results show in the chat under the reply that made the original.
+        job.chat_id = img["chat_id"]
+        chats.link_job(job.id, img["chat_id"], chats.job_message(img.get("job_id")), "variations")
+    return job.to_dict()
 
 
 # ── Prompts and preferences ─────────────────────────────────────────
@@ -530,6 +608,8 @@ async def render_prompts(body: RenderIn):
 
 @app.get("/api/preferences")
 async def get_preferences(chat_id: str | None = None):
+    """What the designer learned from reactions and typed feedback: one chat's profile, the cross-chat one,
+    and the exact text it adds to the designer's system prompt."""
     return {
         "chat": preferences.profile(preferences.chat_scope(chat_id)) if chat_id else None,
         "global": preferences.profile(preferences.GLOBAL),
@@ -540,6 +620,8 @@ async def get_preferences(chat_id: str | None = None):
 
 @app.delete("/api/preferences")
 async def clear_preferences(chat_id: str | None = None, scope: str | None = None):
+    """Forget what the designer learned in one chat (chat_id), or across chats (scope=global).
+    The feedback events themselves stay."""
     if scope == "global":
         preferences.clear(preferences.GLOBAL)
     elif chat_id:
@@ -549,109 +631,231 @@ async def clear_preferences(chat_id: str | None = None, scope: str | None = None
     return await get_preferences(chat_id)
 
 
-class FeedbackIn(BaseModel):
-    kind: str  # like | dislike | pick | clear
-    image_id: str
-    chat_id: str | None = None
-
-
-@app.post("/api/preferences/events")
-async def feedback_event(body: FeedbackIn):
-    """Integration point for like, dislike and pick buttons. See prompting/preferences.py."""
-    if body.kind not in ("like", "dislike", "pick", "clear"):
-        raise ValueError("kind must be like, dislike, pick or clear")
-    return preferences.apply_event(preferences.FeedbackEvent(body.kind, body.image_id, body.chat_id))  # type: ignore[arg-type]
-
-
 # ── Chats ───────────────────────────────────────────────────────────
 
 
 class ChatIn(BaseModel):
-    title: str = ""
+    title: str | None = None
+    pinned: bool | None = None
 
 
 class MessageIn(BaseModel):
     content: str
     images: list[str] = Field(default_factory=list)
+    # Where the new message goes. Omit to continue the visible branch. To edit an
+    # earlier message, pass that message's parent (null for the first message):
+    # the edit becomes a sibling and the old branch stays.
+    parent_id: int | None = None
+    edit_of: int | None = None
+
+
+class ActiveIn(BaseModel):
+    message_id: int
+
+
+class RestoreIn(BaseModel):
+    stamp: float
+
+
+class FeedbackIn(BaseModel):
+    kind: str  # like | dislike | unrate | pick
+    image_id: str | None = None
+    chat_id: str | None = None
+    message_id: int | None = None
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+def _chat_or_404(chat_id: str) -> dict:
+    chat = chats.get(chat_id)
+    if not chat:
+        raise _not_found("Chat")
+    return chat
+
+
+def _chat_view(chat_id: str) -> dict:
+    view = chats.view(chat_id)
+    if not view:
+        raise _not_found("Chat")
+    linked = chats.chat_jobs(chat_id)
+    view["jobs"] = [
+        j.to_dict() | {"message_id": linked.get(j.id)}
+        for j in jobs.list()
+        if (j.chat_id == chat_id or j.id in linked) and j.kind in ("generate", "variations")
+    ]
+    view["spend"] = library.spend(chat_id=chat_id)
+    turn = turns.running_in(chat_id)
+    view["running"] = turn.message_id if turn else None
+    return view
 
 
 @app.get("/api/chats")
-async def list_chats():
-    return library.list_chats()
+async def list_chats(q: str | None = None):
+    """Designer chats with at least one message, newest activity first, with spend and a thumbnail. q searches titles and messages."""
+    return chats.list_all(q)
 
 
 @app.post("/api/chats")
 async def create_chat(body: ChatIn):
-    return library.create_chat(body.title)
+    """An empty chat."""
+    return chats.create(body.title or "")
+
+
+@app.get("/api/designer/last")
+async def last_chat():
+    """The chat the designer had open last, from any browser."""
+    return {"chat_id": chats.last_opened()}
 
 
 @app.get("/api/chats/{chat_id}")
 async def get_chat(chat_id: str):
-    chat = library.get_chat(chat_id)
-    if not chat:
-        raise _not_found("Chat")
-    return chat | {"spend": library.spend(chat_id=chat_id)}
+    """A chat with the visible branch of messages (each with siblings, cost, status and the images made from it), its
+    jobs, spend, and the id of a reply that's still running.
+    """
+    return _chat_view(chat_id)
+
+
+@app.post("/api/chats/{chat_id}/open")
+async def open_chat(chat_id: str):
+    """Remember this as the chat the designer opens next time."""
+    _chat_or_404(chat_id)
+    chats.mark_opened(chat_id)
+    return {"ok": True}
 
 
 @app.patch("/api/chats/{chat_id}")
-async def rename_chat(chat_id: str, body: ChatIn):
-    library.rename_chat(chat_id, body.title)
-    return library.get_chat(chat_id)
+async def update_chat(chat_id: str, body: ChatIn):
+    """Rename or pin a chat."""
+    _chat_or_404(chat_id)
+    return chats.update(chat_id, title=body.title, pinned=body.pinned)
 
 
 @app.delete("/api/chats/{chat_id}")
 async def delete_chat(chat_id: str):
-    library.delete_chat(chat_id)
+    """Delete a chat (soft: POST .../restore undoes it for a week)."""
+    _chat_or_404(chat_id)
+    turn = turns.running_in(chat_id)
+    if turn:
+        turns.stop(turn.message_id)
+    chats.delete(chat_id)
     return {"ok": True}
 
 
-def _sse(event: dict) -> str:
-    return f"data: {json.dumps(event)}\n\n"
+@app.post("/api/chats/{chat_id}/restore")
+async def restore_chat(chat_id: str):
+    """Undo a chat delete."""
+    chat = chats.restore(chat_id)
+    if not chat:
+        raise _not_found("Chat")
+    return chat
 
 
 @app.post("/api/chats/{chat_id}/messages")
 async def send_message(chat_id: str, body: MessageIn):
-    chat = library.get_chat(chat_id)
-    if not chat:
-        raise _not_found("Chat")
+    """Add a user message and start the designer's reply on the server. Returns user_id and reply_id; follow the
+    reply with the stream endpoint or by polling the chat. edit_of=<message id> sends an edited copy of that
+    message as a new branch.
+    """
+    chat = _chat_or_404(chat_id)
     text = body.content.strip()
     if not text:
         raise ValueError("Empty message")
+    if turns.running_in(chat_id):
+        raise turns.TurnBusy()
+    if body.edit_of is not None:
+        original = chats.get_message(body.edit_of)
+        if not original or original["chat_id"] != chat_id or original["role"] != "user":
+            raise ValueError("Only your own messages in this chat can be edited.")
+        parent = original["parent_id"]
+    elif "parent_id" in body.model_fields_set:
+        parent = body.parent_id
+    else:
+        parent = chat["active_leaf"]
+    if parent is not None:
+        p = chats.get_message(parent)
+        if not p or p["chat_id"] != chat_id:
+            raise ValueError("That message is not in this chat.")
     images = [paths.rel_output(p) for p in _refs(body.images)]
-    library.add_message(chat_id, "user", text, images=images)
-    history = library.get_chat(chat_id)["messages"]  # type: ignore[index]
-    vision = await prompt_engine.chat_supports_images()
-    messages = prompt_engine.build_history(history, paths.resolve_output, vision, chat_id=chat_id)
+    user_id = chats.add_message(chat_id, "user", text, parent, images=images)
+    reply_id = turns.start(chat_id, user_id)
+    return {"user_id": user_id, "reply_id": reply_id}
+
+
+@app.post("/api/chats/{chat_id}/messages/{message_id}/regenerate")
+async def regenerate(chat_id: str, message_id: int):
+    """A new reply to the same user message. The old reply stays as a sibling."""
+    _chat_or_404(chat_id)
+    m = chats.get_message(message_id)
+    if not m or m["chat_id"] != chat_id:
+        raise _not_found("Message")
+    parent = m["id"] if m["role"] == "user" else m["parent_id"]
+    if parent is None:
+        raise ValueError("Nothing to answer.")
+    return {"reply_id": turns.start(chat_id, parent)}
+
+
+@app.post("/api/chats/{chat_id}/messages/{message_id}/stop")
+async def stop_message(chat_id: str, message_id: int):
+    return {"stopped": turns.stop(message_id)}
+
+
+@app.get("/api/chats/{chat_id}/messages/{message_id}/stream")
+async def follow_message(chat_id: str, message_id: int, request: Request, after: int | None = None):
+    """SSE for one reply. Resumes after `after` or the Last-Event-ID header; otherwise starts with a snapshot."""
+    cursor = after
+    last = request.headers.get("last-event-id")
+    if cursor is None and last and last.isdigit():
+        cursor = int(last)
 
     async def stream():
-        reply = ""
-        saved = False
-        try:
-            yield _sse({"type": "start", "model": prompt_engine.backend_label()})
-            async for ev in prompt_engine.stream_reply(messages):
-                if ev["type"] == "token":
-                    reply += ev["content"]
-                    yield _sse({"type": "token", "content": ev["content"]})
-                elif ev["type"] == "reasoning":
-                    yield _sse({"type": "reasoning", "content": ev.get("content", "")})
-                elif ev["type"] == "usage":
-                    rec = prompt_engine.cost_record(ev, get_settings().chat_model)
-                    library.add_cost("chat", chat_id=chat_id, **rec)
-                    yield _sse({"type": "usage", "credits": rec["credits"], "byok": rec["byok"]})
-            prompts, feedback = prompt_engine.parse_reply(reply)
-            if feedback:
-                prompt_engine.learn_from_reply(chat_id, reply)
-            shown = prompt_engine.strip_prompt_block(reply) if prompts or feedback else reply
-            mid = library.add_message(chat_id, "assistant", shown, prompts=prompts)
-            saved = True
-            yield _sse({"type": "done", "message_id": mid, "content": shown, "prompts": prompts})
-        except Exception as e:  # noqa: BLE001
-            yield _sse({"type": "error", "message": _error_text(e)})
-        finally:
-            if not saved and reply.strip():
-                library.add_message(chat_id, "assistant", reply + "\n\n_(stopped)_")
+        yield "retry: 1000\n\n"
+        async for ev in turns.follow(message_id, cursor):
+            head = f"id: {ev['id']}\n" if ev.get("id") else ""
+            yield head + f"data: {json.dumps(ev)}\n\n"
 
     return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.put("/api/chats/{chat_id}/active")
+async def set_active(chat_id: str, body: ActiveIn):
+    """Show another branch: the given message and the newest replies below it."""
+    _chat_or_404(chat_id)
+    chats.set_active(chat_id, body.message_id)
+    return _chat_view(chat_id)
+
+
+@app.delete("/api/chats/{chat_id}/messages/{message_id}")
+async def delete_message(chat_id: str, message_id: int):
+    """Delete a message and everything after it. Returns a stamp to undo with."""
+    _chat_or_404(chat_id)
+    for mid in chats.subtree(chat_id, message_id):
+        turns.stop(mid)
+    return {"stamp": chats.delete_from(chat_id, message_id)}
+
+
+@app.post("/api/chats/{chat_id}/messages/{message_id}/restore")
+async def restore_message(chat_id: str, message_id: int, body: RestoreIn):
+    _chat_or_404(chat_id)
+    chats.restore_from(chat_id, message_id, body.stamp)
+    return _chat_view(chat_id)
+
+
+# ── Feedback (read by the prompt layer) ─────────────────────────────
+
+
+@app.post("/api/feedback")
+async def add_feedback(body: FeedbackIn):
+    """Record a reaction to an image: like, dislike, unrate (clear the rating) or pick ("use this direction").
+
+    The designer learns from these: see GET /api/preferences.
+    """
+    event = chats.add_feedback(body.kind, image_id=body.image_id, chat_id=body.chat_id, message_id=body.message_id, data=body.data)
+    preferences.sync_feedback()
+    return event
+
+
+@app.get("/api/feedback")
+async def list_feedback(since_id: int = 0, chat_id: str | None = None, limit: int = 500):
+    return chats.list_feedback(since_id, chat_id, min(limit, 5000))
 
 
 # ── Library ─────────────────────────────────────────────────────────
@@ -668,12 +872,16 @@ async def list_images(
     limit: int = 200,
     offset: int = 0,
 ):
+    """Library images, newest first. Filter by kind (generated, upscaled, cleaned), favorite, q (text search),
+    chat_id, job_id or ids (comma separated).
+    """
     id_list = [i for i in ids.split(",") if i] if ids is not None else None
     return library.list_images(kind, favorite, q, chat_id, job_id, id_list, min(limit, 1000), offset)
 
 
 @app.get("/api/images/{image_id}")
 async def get_image(image_id: str):
+    """One image with its parent and children (upscales, cleaned copies, variations)."""
     img = library.get_image(image_id)
     if not img:
         raise _not_found("Image")
@@ -693,6 +901,7 @@ class PrimaryIn(BaseModel):
 
 @app.put("/api/images/{image_id}/primary")
 async def set_primary(image_id: str, body: PrimaryIn):
+    """Mark an upscaled or cleaned child as the version to use (child_id null clears it)."""
     if not library.set_primary(image_id, body.child_id):
         raise _not_found("Image")
     return library.with_primary([library.get_image(image_id)])[0]  # type: ignore[list-item]
@@ -700,22 +909,22 @@ async def set_primary(image_id: str, body: PrimaryIn):
 
 @app.get("/api/spend")
 async def spend(chat_id: str | None = None):
+    """What has been spent: OpenRouter credits, BYOK, by kind, image counts. Optionally for one chat."""
     return library.spend(chat_id=chat_id)
 
 
 @app.patch("/api/images/{image_id}")
 async def patch_image(image_id: str, body: ImagePatch):
+    """Set favorite or note."""
     img = library.update_image(image_id, **body.model_dump(exclude_none=True))
     if not img:
         raise _not_found("Image")
-    if body.favorite is not None:
-        # A favorite counts as a like for what the designer learns.
-        preferences.apply_event(preferences.FeedbackEvent("like" if body.favorite else "clear", image_id))
     return img
 
 
 @app.delete("/api/images/{image_id}")
 async def delete_image(image_id: str):
+    """Delete an image, its file and its children."""
     if not library.delete_image(image_id):
         raise _not_found("Image")
     return {"ok": True}
@@ -723,6 +932,7 @@ async def delete_image(image_id: str):
 
 @app.get("/api/tools")
 async def tool_options():
+    """Upscale methods and scales, and background removal models, available on this machine."""
     return {
         "upscale": {"methods": upscaler.METHODS, "scales": upscaler.SCALES,
                     "ai_available": system.local_stack_installed(), "device": system.device_kind()},
@@ -751,6 +961,7 @@ def _derived_meta(img: dict) -> dict:
 
 @app.post("/api/images/{image_id}/upscale")
 async def upscale(image_id: str, body: UpscaleIn):
+    """Upscale an image (methods from GET /api/tools). Returns the new image, kept as a child of the original."""
     img, src = _raster_source(image_id)
     out = await run_in_threadpool(upscaler.upscale_image, src, body.method, body.scale)
     return library.add_image(out, "upscaled", parent_id=image_id, note=f"{body.method} {body.scale}x", **_derived_meta(img))
@@ -767,6 +978,7 @@ class BackgroundIn(BaseModel):
 
 @app.post("/api/images/{image_id}/remove-background")
 async def remove_background(image_id: str, body: BackgroundIn):
+    """Remove the background with an AI model (method ai) or by keying out a color (method color). Returns the new image as a child."""
     img, src = _raster_source(image_id)
     if body.method == "color":
         out = await run_in_threadpool(
@@ -784,6 +996,7 @@ async def remove_background(image_id: str, body: BackgroundIn):
 
 @app.post("/api/uploads")
 async def upload(images: list[UploadFile] = File(...)):
+    """Upload reference images. Returns their paths for the references or images fields."""
     paths.UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     saved = []
     for f in images:
@@ -817,8 +1030,8 @@ async def serve_file(rel: str, download: bool = False):
 
 _NOT_BUILT = """<!doctype html><meta charset="utf-8"><title>logo-gen</title>
 <body style="font-family:system-ui;padding:3rem;max-width:40rem">
-<h1>Frontend not built</h1><p>Run <code>./logo-gen</code> from the project folder. It builds the
-frontend and starts the server. For frontend work, use <code>./logo-gen --dev</code>.</p></body>"""
+<h1>Frontend not built</h1><p>Run <code>./launch.sh</code> (or <code>launch.cmd</code> on Windows) from the project folder. It builds the
+frontend and starts the server. For frontend work, add <code>--dev</code>.</p></body>"""
 
 
 @app.get("/api/{rest:path}")

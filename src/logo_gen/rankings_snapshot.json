@@ -1,0 +1,1925 @@
+{
+ "source": {
+  "name": "LMArena text-to-image leaderboard",
+  "url": "https://lmarena.ai/leaderboard/text-to-image",
+  "dataset": "https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset",
+  "license": "CC BY 4.0",
+  "published": "2026-11-20"
+ },
+ "models": {
+  "GPT-Image-2.5 Sunburst": {
+   "organization": "openai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1429.0,
+    "ci": [
+     1424.1,
+     1433.8
+    ],
+    "votes": 73040,
+    "rank": 1
+   },
+   "commercial_design": {
+    "rating": 1420.1,
+    "ci": [
+     1412.8,
+     1427.4
+    ],
+    "votes": 23555,
+    "rank": 1
+   }
+  },
+  "GPT-Image-2.6 Sunburst (Medium)": {
+   "organization": "openai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1412.0,
+    "ci": [
+     1402.9,
+     1421.1
+    ],
+    "votes": 7168,
+    "rank": 2
+   },
+   "commercial_design": {
+    "rating": 1397.4,
+    "ci": [
+     1383.1,
+     1411.8
+    ],
+    "votes": 2314,
+    "rank": 2
+   }
+  },
+  "GPT-Image-2.5 Flare": {
+   "organization": "openai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1399.9,
+    "ci": [
+     1395.2,
+     1404.6
+    ],
+    "votes": 72202,
+    "rank": 3
+   },
+   "commercial_design": {
+    "rating": 1383.2,
+    "ci": [
+     1376.2,
+     1390.2
+    ],
+    "votes": 23152,
+    "rank": 4
+   }
+  },
+  "MAI-Image-2.7": {
+   "organization": "microsoft-ai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1384.5,
+    "ci": [
+     1374.0,
+     1395.0
+    ],
+    "votes": 4485,
+    "rank": 4
+   },
+   "commercial_design": {
+    "rating": 1377.9,
+    "ci": [
+     1361.6,
+     1394.1
+    ],
+    "votes": 1617,
+    "rank": 5
+   }
+  },
+  "GPT-Image-2 (Medium)": {
+   "organization": "openai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1381.6,
+    "ci": [
+     1377.8,
+     1385.3
+    ],
+    "votes": 112925,
+    "rank": 5
+   },
+   "commercial_design": {
+    "rating": 1385.7,
+    "ci": [
+     1380.4,
+     1391.1
+    ],
+    "votes": 41251,
+    "rank": 3
+   }
+  },
+  "GPT-Image-2.6 Flare (Medium)": {
+   "organization": "openai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1376.3,
+    "ci": [
+     1367.2,
+     1385.4
+    ],
+    "votes": 7042,
+    "rank": 6
+   },
+   "commercial_design": {
+    "rating": 1369.5,
+    "ci": [
+     1355.6,
+     1383.5
+    ],
+    "votes": 2279,
+    "rank": 6
+   }
+  },
+  "MAI-Image-2.6": {
+   "organization": "microsoft-ai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1329.0,
+    "ci": [
+     1324.0,
+     1334.0
+    ],
+    "votes": 43475,
+    "rank": 7
+   },
+   "commercial_design": {
+    "rating": 1333.7,
+    "ci": [
+     1326.5,
+     1340.9
+    ],
+    "votes": 13247,
+    "rank": 7
+   }
+  },
+  "Grok Imagine Image 2.0": {
+   "organization": "xai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1318.2,
+    "ci": [
+     1310.7,
+     1325.7
+    ],
+    "votes": 9877,
+    "rank": 8
+   },
+   "commercial_design": {
+    "rating": 1325.8,
+    "ci": [
+     1313.5,
+     1338.1
+    ],
+    "votes": 2396,
+    "rank": 8
+   }
+  },
+  "Gemini Nano Banana 2.1": {
+   "organization": "google",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1305.0,
+    "ci": [
+     1299.9,
+     1310.1
+    ],
+    "votes": 45471,
+    "rank": 9
+   },
+   "commercial_design": {
+    "rating": 1317.8,
+    "ci": [
+     1310.3,
+     1325.3
+    ],
+    "votes": 13233,
+    "rank": 9
+   }
+  },
+  "Reve 2.1": {
+   "organization": "reve",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1301.6,
+    "ci": [
+     1294.0,
+     1309.3
+    ],
+    "votes": 7896,
+    "rank": 10
+   },
+   "commercial_design": {
+    "rating": 1316.2,
+    "ci": [
+     1304.8,
+     1327.6
+    ],
+    "votes": 2849,
+    "rank": 10
+   }
+  },
+  "Grok Imagine Image 2.0 (20260801)": {
+   "organization": "xai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1288.3,
+    "ci": [
+     1283.4,
+     1293.2
+    ],
+    "votes": 41806,
+    "rank": 11
+   },
+   "commercial_design": {
+    "rating": 1289.3,
+    "ci": [
+     1282.2,
+     1296.4
+    ],
+    "votes": 12836,
+    "rank": 11
+   }
+  },
+  "Reve 2.0": {
+   "organization": "reve",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1268.3,
+    "ci": [
+     1262.0,
+     1274.5
+    ],
+    "votes": 15283,
+    "rank": 12
+   },
+   "commercial_design": {
+    "rating": 1279.4,
+    "ci": [
+     1270.7,
+     1288.1
+    ],
+    "votes": 5915,
+    "rank": 12
+   }
+  },
+  "Muse Image": {
+   "organization": "meta",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1265.4,
+    "ci": [
+     1261.0,
+     1269.7
+    ],
+    "votes": 64207,
+    "rank": 13
+   },
+   "commercial_design": {
+    "rating": 1255.7,
+    "ci": [
+     1249.7,
+     1261.7
+    ],
+    "votes": 20271,
+    "rank": 15
+   }
+  },
+  "Gemini 3.1 Flash Image (nano-banana-2, Web Search)": {
+   "organization": "google",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1256.4,
+    "ci": [
+     1252.7,
+     1260.1
+    ],
+    "votes": 87077,
+    "rank": 14
+   },
+   "commercial_design": {
+    "rating": 1265.5,
+    "ci": [
+     1260.2,
+     1270.9
+    ],
+    "votes": 28206,
+    "rank": 13
+   }
+  },
+  "Qwen-Image-3.0-Pro": {
+   "organization": "alibaba",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1253.9,
+    "ci": [
+     1247.3,
+     1260.5
+    ],
+    "votes": 10900,
+    "rank": 15
+   },
+   "commercial_design": {
+    "rating": 1255.6,
+    "ci": [
+     1245.4,
+     1265.9
+    ],
+    "votes": 3497,
+    "rank": 16
+   }
+  },
+  "MAI-Image-2.5": {
+   "organization": "microsoft-ai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1252.6,
+    "ci": [
+     1248.4,
+     1256.9
+    ],
+    "votes": 58993,
+    "rank": 16
+   },
+   "commercial_design": {
+    "rating": 1258.6,
+    "ci": [
+     1252.8,
+     1264.5
+    ],
+    "votes": 21694,
+    "rank": 14
+   }
+  },
+  "Gemini 3.1 Flash-Lite Image (nano-banana-2-lite)": {
+   "organization": "google",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1249.1,
+    "ci": [
+     1243.1,
+     1255.2
+    ],
+    "votes": 17106,
+    "rank": 17
+   },
+   "commercial_design": {
+    "rating": 1247.9,
+    "ci": [
+     1239.3,
+     1256.5
+    ],
+    "votes": 6184,
+    "rank": 17
+   }
+  },
+  "Seedream 5.0 Pro": {
+   "organization": "bytedance",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1247.5,
+    "ci": [
+     1243.8,
+     1251.2
+    ],
+    "votes": 116091,
+    "rank": 18
+   },
+   "commercial_design": {
+    "rating": 1235.0,
+    "ci": [
+     1229.6,
+     1240.4
+    ],
+    "votes": 37222,
+    "rank": 22
+   }
+  },
+  "Gemini 3 Pro Image (nano-banana-pro, 2K)": {
+   "organization": "google",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1245.8,
+    "ci": [
+     1242.7,
+     1248.8
+    ],
+    "votes": 184539,
+    "rank": 19
+   },
+   "commercial_design": {
+    "rating": 1245.8,
+    "ci": [
+     1241.5,
+     1250.2
+    ],
+    "votes": 63569,
+    "rank": 18
+   }
+  },
+  "GPT-Image-1.5 (High Fidelity)": {
+   "organization": "openai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1236.0,
+    "ci": [
+     1232.9,
+     1239.1
+    ],
+    "votes": 169182,
+    "rank": 20
+   },
+   "commercial_design": {
+    "rating": 1237.6,
+    "ci": [
+     1233.2,
+     1242.0
+    ],
+    "votes": 64888,
+    "rank": 19
+   }
+  },
+  "Gemini 3 Pro Image Preview (nano-banana-pro)": {
+   "organization": "google",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1231.1,
+    "ci": [
+     1226.2,
+     1236.1
+    ],
+    "votes": 83746,
+    "rank": 21
+   },
+   "commercial_design": {
+    "rating": 1235.1,
+    "ci": [
+     1228.3,
+     1241.8
+    ],
+    "votes": 26878,
+    "rank": 21
+   }
+  },
+  "Qwen-Image-2.1": {
+   "organization": "alibaba",
+   "license": "qwen-research",
+   "overall": {
+    "rating": 1226.9,
+    "ci": [
+     1220.5,
+     1233.2
+    ],
+    "votes": 17756,
+    "rank": 22
+   },
+   "commercial_design": {
+    "rating": 1237.4,
+    "ci": [
+     1228.6,
+     1246.3
+    ],
+    "votes": 4990,
+    "rank": 20
+   }
+  },
+  "Ideogram 4.0 (Quality)": {
+   "organization": "ideogram",
+   "license": "Ideogram Open Model",
+   "overall": {
+    "rating": 1199.9,
+    "ci": [
+     1196.3,
+     1203.5
+    ],
+    "votes": 86791,
+    "rank": 23
+   },
+   "commercial_design": {
+    "rating": 1216.2,
+    "ci": [
+     1210.8,
+     1221.5
+    ],
+    "votes": 27874,
+    "rank": 23
+   }
+  },
+  "MiniMax H3-Image": {
+   "organization": "minimax",
+   "license": "minimax-h3-image-community-license-agreement",
+   "overall": {
+    "rating": 1198.4,
+    "ci": [
+     1187.7,
+     1209.1
+    ],
+    "votes": 3281,
+    "rank": 24
+   },
+   "commercial_design": {
+    "rating": 1208.2,
+    "ci": [
+     1190.8,
+     1225.6
+    ],
+    "votes": 1093,
+    "rank": 24
+   }
+  },
+  "Qwen-Image-2.0-Pro (2026-06-22)": {
+   "organization": "alibaba",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1190.3,
+    "ci": [
+     1184.4,
+     1196.3
+    ],
+    "votes": 12645,
+    "rank": 25
+   },
+   "commercial_design": {
+    "rating": 1186.9,
+    "ci": [
+     1178.2,
+     1195.6
+    ],
+    "votes": 4741,
+    "rank": 26
+   }
+  },
+  "UNI-1.1 Max": {
+   "organization": "luma-ai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1188.4,
+    "ci": [
+     1182.2,
+     1194.6
+    ],
+    "votes": 13722,
+    "rank": 26
+   },
+   "commercial_design": {
+    "rating": 1196.4,
+    "ci": [
+     1187.9,
+     1204.9
+    ],
+    "votes": 5307,
+    "rank": 25
+   }
+  },
+  "MAI-Image-2": {
+   "organization": "microsoft-ai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1182.8,
+    "ci": [
+     1178.2,
+     1187.4
+    ],
+    "votes": 50351,
+    "rank": 27
+   },
+   "commercial_design": {
+    "rating": 1175.0,
+    "ci": [
+     1168.7,
+     1181.4
+    ],
+    "votes": 19629,
+    "rank": 29
+   }
+  },
+  "UNI-1.1": {
+   "organization": "luma-ai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1181.3,
+    "ci": [
+     1177.3,
+     1185.3
+    ],
+    "votes": 65767,
+    "rank": 28
+   },
+   "commercial_design": {
+    "rating": 1181.7,
+    "ci": [
+     1176.3,
+     1187.1
+    ],
+    "votes": 22504,
+    "rank": 28
+   }
+  },
+  "Recraft V4.1 Utility Pro": {
+   "organization": "recraft",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1169.3,
+    "ci": [
+     1158.1,
+     1180.4
+    ],
+    "votes": 2562,
+    "rank": 29
+   },
+   "commercial_design": {
+    "rating": 1165.4,
+    "ci": [
+     1149.0,
+     1181.8
+    ],
+    "votes": 1090,
+    "rank": 33
+   }
+  },
+  "Grok Imagine Image": {
+   "organization": "xai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1168.7,
+    "ci": [
+     1166.1,
+     1171.4
+    ],
+    "votes": 298887,
+    "rank": 30
+   },
+   "commercial_design": {
+    "rating": 1172.8,
+    "ci": [
+     1168.9,
+     1176.6
+    ],
+    "votes": 107330,
+    "rank": 30
+   }
+  },
+  "Cosmos3-Super-Text2Image (Agentic)": {
+   "organization": "nvidia",
+   "license": "OpenMDW-1.1",
+   "overall": {
+    "rating": 1163.9,
+    "ci": [
+     1156.7,
+     1171.1
+    ],
+    "votes": 10118,
+    "rank": 31
+   },
+   "commercial_design": {
+    "rating": 1155.0,
+    "ci": [
+     1144.3,
+     1165.7
+    ],
+    "votes": 2736,
+    "rank": 35
+   }
+  },
+  "FLUX.2 [max]": {
+   "organization": "bfl",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1160.9,
+    "ci": [
+     1157.4,
+     1164.5
+    ],
+    "votes": 120318,
+    "rank": 32
+   },
+   "commercial_design": {
+    "rating": 1163.1,
+    "ci": [
+     1158.0,
+     1168.1
+    ],
+    "votes": 45546,
+    "rank": 34
+   }
+  },
+  "Grok Imagine Image Pro": {
+   "organization": "xai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1160.0,
+    "ci": [
+     1156.1,
+     1163.8
+    ],
+    "votes": 96806,
+    "rank": 33
+   },
+   "commercial_design": {
+    "rating": 1167.1,
+    "ci": [
+     1161.7,
+     1172.5
+    ],
+    "votes": 36094,
+    "rank": 32
+   }
+  },
+  "FLUX.2 [flex]": {
+   "organization": "bfl",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1156.3,
+    "ci": [
+     1152.9,
+     1159.8
+    ],
+    "votes": 152760,
+    "rank": 34
+   },
+   "commercial_design": {
+    "rating": 1172.3,
+    "ci": [
+     1167.3,
+     1177.2
+    ],
+    "votes": 56727,
+    "rank": 31
+   }
+  },
+  "Reve v1.5": {
+   "organization": "reve",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1154.0,
+    "ci": [
+     1149.7,
+     1158.3
+    ],
+    "votes": 38461,
+    "rank": 35
+   },
+   "commercial_design": {
+    "rating": 1182.1,
+    "ci": [
+     1176.1,
+     1188.0
+    ],
+    "votes": 15114,
+    "rank": 27
+   }
+  },
+  "FLUX.2 [pro]": {
+   "organization": "bfl",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1152.5,
+    "ci": [
+     1149.7,
+     1155.4
+    ],
+    "votes": 218735,
+    "rank": 36
+   },
+   "commercial_design": {
+    "rating": 1155.0,
+    "ci": [
+     1150.9,
+     1159.0
+    ],
+    "votes": 78387,
+    "rank": 36
+   }
+  },
+  "HunyuanImage 3.0": {
+   "organization": "tencent",
+   "license": "tencent-hunyuan-community",
+   "overall": {
+    "rating": 1151.5,
+    "ci": [
+     1148.1,
+     1154.8
+    ],
+    "votes": 175098,
+    "rank": 37
+   },
+   "commercial_design": {
+    "rating": 1152.3,
+    "ci": [
+     1147.5,
+     1157.2
+    ],
+    "votes": 56808,
+    "rank": 38
+   }
+  },
+  "Cosmos3-Super-Text2Image": {
+   "organization": "nvidia",
+   "license": "OpenMDW-1.1",
+   "overall": {
+    "rating": 1149.4,
+    "ci": [
+     1143.4,
+     1155.4
+    ],
+    "votes": 17367,
+    "rank": 38
+   },
+   "commercial_design": {
+    "rating": 1126.7,
+    "ci": [
+     1117.9,
+     1135.5
+    ],
+    "votes": 5080,
+    "rank": 52
+   }
+  },
+  "Gemini 2.5 Flash Image Preview (nano-banana)": {
+   "organization": "google",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1148.2,
+    "ci": [
+     1145.7,
+     1150.6
+    ],
+    "votes": 893402,
+    "rank": 39
+   },
+   "commercial_design": {
+    "rating": 1150.5,
+    "ci": [
+     1147.0,
+     1154.0
+    ],
+    "votes": 270510,
+    "rank": 40
+   }
+  },
+  "Seedream 4.5": {
+   "organization": "bytedance",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1147.7,
+    "ci": [
+     1145.1,
+     1150.3
+    ],
+    "votes": 311687,
+    "rank": 40
+   },
+   "commercial_design": {
+    "rating": 1142.1,
+    "ci": [
+     1138.3,
+     1145.8
+    ],
+    "votes": 109705,
+    "rank": 42
+   }
+  },
+  "Imagen 4 Ultra (generate-001)": {
+   "organization": "google",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1145.9,
+    "ci": [
+     1141.6,
+     1150.3
+    ],
+    "votes": 385664,
+    "rank": 41
+   },
+   "commercial_design": {
+    "rating": 1151.3,
+    "ci": [
+     1145.8,
+     1156.9
+    ],
+    "votes": 107340,
+    "rank": 39
+   }
+  },
+  "FLUX.2 [dev]": {
+   "organization": "bfl",
+   "license": "flux-non-commercial-license",
+   "overall": {
+    "rating": 1145.0,
+    "ci": [
+     1140.8,
+     1149.2
+    ],
+    "votes": 75601,
+    "rank": 42
+   },
+   "commercial_design": {
+    "rating": 1153.8,
+    "ci": [
+     1148.3,
+     1159.2
+    ],
+    "votes": 26044,
+    "rank": 37
+   }
+  },
+  "Seedream 5.0 Lite": {
+   "organization": "bytedance",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1141.8,
+    "ci": [
+     1138.7,
+     1144.8
+    ],
+    "votes": 152700,
+    "rank": 43
+   },
+   "commercial_design": {
+    "rating": 1133.5,
+    "ci": [
+     1129.2,
+     1137.8
+    ],
+    "votes": 55275,
+    "rank": 45
+   }
+  },
+  "Wan 2.6": {
+   "organization": "alibaba",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1138.7,
+    "ci": [
+     1136.0,
+     1141.4
+    ],
+    "votes": 257312,
+    "rank": 44
+   },
+   "commercial_design": {
+    "rating": 1149.9,
+    "ci": [
+     1146.0,
+     1153.8
+    ],
+    "votes": 92843,
+    "rank": 41
+   }
+  },
+  "Seedream 4.0 (2K)": {
+   "organization": "bytedance",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1138.2,
+    "ci": [
+     1131.6,
+     1144.8
+    ],
+    "votes": 12271,
+    "rank": 45
+   },
+   "commercial_design": {
+    "rating": 1133.1,
+    "ci": [
+     1122.3,
+     1143.8
+    ],
+    "votes": 3450,
+    "rank": 46
+   }
+  },
+  "Recraft V4.1 Pro": {
+   "organization": "recraft",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1131.8,
+    "ci": [
+     1121.3,
+     1142.4
+    ],
+    "votes": 2741,
+    "rank": 46
+   },
+   "commercial_design": {
+    "rating": 1138.2,
+    "ci": [
+     1122.9,
+     1153.6
+    ],
+    "votes": 1161,
+    "rank": 44
+   }
+  },
+  "Krea 2 Medium": {
+   "organization": "krea",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1128.3,
+    "ci": [
+     1124.5,
+     1132.1
+    ],
+    "votes": 83713,
+    "rank": 47
+   },
+   "commercial_design": {
+    "rating": 1126.3,
+    "ci": [
+     1120.8,
+     1131.8
+    ],
+    "votes": 27169,
+    "rank": 53
+   }
+  },
+  "Imagen 4 (generate-001)": {
+   "organization": "google",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1127.6,
+    "ci": [
+     1124.8,
+     1130.4
+    ],
+    "votes": 532931,
+    "rank": 48
+   },
+   "commercial_design": {
+    "rating": 1129.1,
+    "ci": [
+     1125.1,
+     1133.0
+    ],
+    "votes": 160665,
+    "rank": 49
+   }
+  },
+  "Qwen-Image (2512)": {
+   "organization": "alibaba",
+   "license": "Apache 2.0",
+   "overall": {
+    "rating": 1123.9,
+    "ci": [
+     1120.4,
+     1127.4
+    ],
+    "votes": 95197,
+    "rank": 49
+   },
+   "commercial_design": {
+    "rating": 1128.1,
+    "ci": [
+     1123.3,
+     1132.9
+    ],
+    "votes": 34171,
+    "rank": 50
+   }
+  },
+  "Wan 2.5 Preview": {
+   "organization": "alibaba",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1117.3,
+    "ci": [
+     1114.5,
+     1120.1
+    ],
+    "votes": 283513,
+    "rank": 50
+   },
+   "commercial_design": {
+    "rating": 1139.7,
+    "ci": [
+     1135.8,
+     1143.6
+    ],
+    "votes": 98678,
+    "rank": 43
+   }
+  },
+  "Recraft V4": {
+   "organization": "recraft",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1116.5,
+    "ci": [
+     1113.4,
+     1119.5
+    ],
+    "votes": 161688,
+    "rank": 51
+   },
+   "commercial_design": {
+    "rating": 1130.7,
+    "ci": [
+     1126.3,
+     1135.1
+    ],
+    "votes": 55837,
+    "rank": 47
+   }
+  },
+  "Seedream 4.0 (fal)": {
+   "organization": "bytedance",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1115.7,
+    "ci": [
+     1109.2,
+     1122.3
+    ],
+    "votes": 11704,
+    "rank": 52
+   },
+   "commercial_design": {
+    "rating": 1127.4,
+    "ci": [
+     1117.0,
+     1137.8
+    ],
+    "votes": 3165,
+    "rank": 51
+   }
+  },
+  "Krea 2 Turbo": {
+   "organization": "krea",
+   "license": "krea-2-community-license",
+   "overall": {
+    "rating": 1115.1,
+    "ci": [
+     1110.8,
+     1119.5
+    ],
+    "votes": 63342,
+    "rank": 53
+   },
+   "commercial_design": {
+    "rating": 1115.2,
+    "ci": [
+     1108.9,
+     1121.4
+    ],
+    "votes": 18775,
+    "rank": 55
+   }
+  },
+  "GPT-Image-1": {
+   "organization": "openai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1114.9,
+    "ci": [
+     1111.7,
+     1118.1
+    ],
+    "votes": 265739,
+    "rank": 54
+   },
+   "commercial_design": {
+    "rating": 1114.4,
+    "ci": [
+     1109.9,
+     1118.9
+    ],
+    "votes": 81515,
+    "rank": 56
+   }
+  },
+  "HiDream-O1-Image": {
+   "organization": "hidream",
+   "license": "MIT",
+   "overall": {
+    "rating": 1114.3,
+    "ci": [
+     1110.6,
+     1118.1
+    ],
+    "votes": 75604,
+    "rank": 55
+   },
+   "commercial_design": {
+    "rating": 1129.7,
+    "ci": [
+     1124.3,
+     1135.0
+    ],
+    "votes": 24615,
+    "rank": 48
+   }
+  },
+  "Krea 2 Large": {
+   "organization": "krea",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1113.6,
+    "ci": [
+     1109.5,
+     1117.7
+    ],
+    "votes": 67696,
+    "rank": 56
+   },
+   "commercial_design": {
+    "rating": 1110.4,
+    "ci": [
+     1104.6,
+     1116.2
+    ],
+    "votes": 22002,
+    "rank": 59
+   }
+  },
+  "Seedream 4.0 (High Res, fal)": {
+   "organization": "bytedance",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1112.7,
+    "ci": [
+     1109.4,
+     1116.0
+    ],
+    "votes": 178262,
+    "rank": 57
+   },
+   "commercial_design": {
+    "rating": 1112.8,
+    "ci": [
+     1108.2,
+     1117.4
+    ],
+    "votes": 61911,
+    "rank": 57
+   }
+  },
+  "GPT-Image-1 mini": {
+   "organization": "openai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1109.0,
+    "ci": [
+     1105.8,
+     1112.2
+    ],
+    "votes": 167632,
+    "rank": 58
+   },
+   "commercial_design": {
+    "rating": 1109.5,
+    "ci": [
+     1104.9,
+     1114.1
+    ],
+    "votes": 62714,
+    "rank": 61
+   }
+  },
+  "Wan 2.7 Image Pro": {
+   "organization": "alibaba",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1103.3,
+    "ci": [
+     1098.2,
+     1108.4
+    ],
+    "votes": 29777,
+    "rank": 59
+   },
+   "commercial_design": {
+    "rating": 1116.6,
+    "ci": [
+     1109.9,
+     1123.4
+    ],
+    "votes": 12142,
+    "rank": 54
+   }
+  },
+  "Wan 2.7 Image": {
+   "organization": "alibaba",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1099.9,
+    "ci": [
+     1094.8,
+     1104.9
+    ],
+    "votes": 30208,
+    "rank": 60
+   },
+   "commercial_design": {
+    "rating": 1110.5,
+    "ci": [
+     1104.0,
+     1117.0
+    ],
+    "votes": 12192,
+    "rank": 58
+   }
+  },
+  "Recraft V4.1 Flash": {
+   "organization": "recraft",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1098.9,
+    "ci": [
+     1091.3,
+     1106.5
+    ],
+    "votes": 5907,
+    "rank": 61
+   },
+   "commercial_design": {
+    "rating": 1102.9,
+    "ci": [
+     1090.8,
+     1115.0
+    ],
+    "votes": 1959,
+    "rank": 62
+   }
+  },
+  "Recraft V4.1 Flash V2": {
+   "organization": "recraft",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1098.0,
+    "ci": [
+     1092.1,
+     1103.9
+    ],
+    "votes": 24260,
+    "rank": 62
+   },
+   "commercial_design": {
+    "rating": 1109.6,
+    "ci": [
+     1100.7,
+     1118.5
+    ],
+    "votes": 7166,
+    "rank": 60
+   }
+  },
+  "MAI-Image-1": {
+   "organization": "microsoft-ai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1092.9,
+    "ci": [
+     1089.2,
+     1096.5
+    ],
+    "votes": 96151,
+    "rank": 63
+   },
+   "commercial_design": {
+    "rating": 1085.8,
+    "ci": [
+     1080.6,
+     1090.9
+    ],
+    "votes": 35330,
+    "rank": 64
+   }
+  },
+  "Z-Image-Turbo": {
+   "organization": "alibaba",
+   "license": "Apache 2.0",
+   "overall": {
+    "rating": 1081.8,
+    "ci": [
+     1076.4,
+     1087.2
+    ],
+    "votes": 24075,
+    "rank": 64
+   },
+   "commercial_design": {
+    "rating": 1061.4,
+    "ci": [
+     1054.3,
+     1068.5
+    ],
+    "votes": 8031,
+    "rank": 71
+   }
+  },
+  "Seedream 3.0": {
+   "organization": "bytedance",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1081.2,
+    "ci": [
+     1076.1,
+     1086.3
+    ],
+    "votes": 36180,
+    "rank": 65
+   },
+   "commercial_design": {
+    "rating": 1070.0,
+    "ci": [
+     1062.3,
+     1077.7
+    ],
+    "votes": 10323,
+    "rank": 68
+   }
+  },
+  "FLUX.1 Kontext [max]": {
+   "organization": "bfl",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1075.0,
+    "ci": [
+     1071.7,
+     1078.3
+    ],
+    "votes": 65246,
+    "rank": 66
+   },
+   "commercial_design": {
+    "rating": 1083.9,
+    "ci": [
+     1078.2,
+     1089.5
+    ],
+    "votes": 16473,
+    "rank": 65
+   }
+  },
+  "FLUX.2 [klein] 9B": {
+   "organization": "bfl",
+   "license": "flux-non-commercial-license",
+   "overall": {
+    "rating": 1070.0,
+    "ci": [
+     1066.8,
+     1073.3
+    ],
+    "votes": 146946,
+    "rank": 67
+   },
+   "commercial_design": {
+    "rating": 1070.2,
+    "ci": [
+     1065.7,
+     1074.8
+    ],
+    "votes": 57180,
+    "rank": 67
+   }
+  },
+  "Qwen-Image (Prompt Extend)": {
+   "organization": "alibaba",
+   "license": "Apache 2.0",
+   "overall": {
+    "rating": 1061.5,
+    "ci": [
+     1058.8,
+     1064.2
+    ],
+    "votes": 706112,
+    "rank": 68
+   },
+   "commercial_design": {
+    "rating": 1087.0,
+    "ci": [
+     1083.2,
+     1090.9
+    ],
+    "votes": 210821,
+    "rank": 63
+   }
+  },
+  "FLUX.1 Kontext [pro]": {
+   "organization": "bfl",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1058.8,
+    "ci": [
+     1055.4,
+     1062.3
+    ],
+    "votes": 329758,
+    "rank": 69
+   },
+   "commercial_design": {
+    "rating": 1067.5,
+    "ci": [
+     1062.6,
+     1072.4
+    ],
+    "votes": 91100,
+    "rank": 70
+   }
+  },
+  "Qwen-Image": {
+   "organization": "alibaba",
+   "license": "Apache 2.0",
+   "overall": {
+    "rating": 1056.9,
+    "ci": [
+     1054.3,
+     1059.6
+    ],
+    "votes": 84270,
+    "rank": 70
+   },
+   "commercial_design": {
+    "rating": 1068.9,
+    "ci": [
+     1063.9,
+     1074.0
+    ],
+    "votes": 17794,
+    "rank": 69
+   }
+  },
+  "Imagen 3 (generate-002)": {
+   "organization": "google",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1056.9,
+    "ci": [
+     1053.6,
+     1060.1
+    ],
+    "votes": 358226,
+    "rank": 71
+   },
+   "commercial_design": {
+    "rating": 1055.9,
+    "ci": [
+     1050.8,
+     1061.0
+    ],
+    "votes": 87355,
+    "rank": 72
+   }
+  },
+  "Ideogram 3.0 (Quality)": {
+   "organization": "ideogram",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1048.9,
+    "ci": [
+     1045.1,
+     1052.7
+    ],
+    "votes": 115721,
+    "rank": 72
+   },
+   "commercial_design": {
+    "rating": 1082.1,
+    "ci": [
+     1076.6,
+     1087.6
+    ],
+    "votes": 37317,
+    "rank": 66
+   }
+  },
+  "Luma Photon": {
+   "organization": "luma-ai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1035.6,
+    "ci": [
+     1031.9,
+     1039.4
+    ],
+    "votes": 127790,
+    "rank": 73
+   },
+   "commercial_design": {
+    "rating": 1051.5,
+    "ci": [
+     1046.1,
+     1056.8
+    ],
+    "votes": 37516,
+    "rank": 74
+   }
+  },
+  "P-Image": {
+   "organization": "",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1032.8,
+    "ci": [
+     1029.2,
+     1036.3
+    ],
+    "votes": 107068,
+    "rank": 74
+   },
+   "commercial_design": {
+    "rating": 1030.4,
+    "ci": [
+     1025.4,
+     1035.3
+    ],
+    "votes": 39919,
+    "rank": 76
+   }
+  },
+  "FLUX.2 [klein] 4B": {
+   "organization": "bfl",
+   "license": "Apache 2.0",
+   "overall": {
+    "rating": 1029.8,
+    "ci": [
+     1026.5,
+     1033.1
+    ],
+    "votes": 148587,
+    "rank": 75
+   },
+   "commercial_design": {
+    "rating": 1025.5,
+    "ci": [
+     1020.9,
+     1030.2
+    ],
+    "votes": 58023,
+    "rank": 79
+   }
+  },
+  "Runway Gen-4": {
+   "organization": "runway",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1024.4,
+    "ci": [
+     1019.9,
+     1028.9
+    ],
+    "votes": 53167,
+    "rank": 76
+   },
+   "commercial_design": {
+    "rating": 1026.4,
+    "ci": [
+     1020.3,
+     1032.5
+    ],
+    "votes": 20916,
+    "rank": 77
+   }
+  },
+  "Recraft V3": {
+   "organization": "recraft",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1021.9,
+    "ci": [
+     1018.2,
+     1025.6
+    ],
+    "votes": 192880,
+    "rank": 77
+   },
+   "commercial_design": {
+    "rating": 1026.4,
+    "ci": [
+     1021.2,
+     1031.5
+    ],
+    "votes": 47269,
+    "rank": 78
+   }
+  },
+  "FLUX1.1 [pro]": {
+   "organization": "bfl",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1015.6,
+    "ci": [
+     1012.1,
+     1019.1
+    ],
+    "votes": 70460,
+    "rank": 78
+   },
+   "commercial_design": {
+    "rating": 1012.0,
+    "ci": [
+     1004.0,
+     1019.9
+    ],
+    "votes": 10135,
+    "rank": 82
+   }
+  },
+  "Ideogram 2.0": {
+   "organization": "ideogram",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1013.3,
+    "ci": [
+     1009.7,
+     1016.9
+    ],
+    "votes": 72090,
+    "rank": 79
+   },
+   "commercial_design": {
+    "rating": 1053.3,
+    "ci": [
+     1045.1,
+     1061.5
+    ],
+    "votes": 10338,
+    "rank": 73
+   }
+  },
+  "Lucid Origin": {
+   "organization": "leonardo-ai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 1012.9,
+    "ci": [
+     1009.4,
+     1016.3
+    ],
+    "votes": 284660,
+    "rank": 80
+   },
+   "commercial_design": {
+    "rating": 1019.4,
+    "ci": [
+     1014.4,
+     1024.4
+    ],
+    "votes": 82582,
+    "rank": 80
+   }
+  },
+  "GLM-Image": {
+   "organization": "zai",
+   "license": "MIT",
+   "overall": {
+    "rating": 1011.9,
+    "ci": [
+     1003.0,
+     1020.9
+    ],
+    "votes": 4756,
+    "rank": 81
+   },
+   "commercial_design": {
+    "rating": 1037.1,
+    "ci": [
+     1023.9,
+     1050.3
+    ],
+    "votes": 1697,
+    "rank": 75
+   }
+  },
+  "Gemini 2.0 Flash Preview Image Generation": {
+   "organization": "google",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 976.0,
+    "ci": [
+     972.5,
+     979.5
+    ],
+    "votes": 255400,
+    "rank": 82
+   },
+   "commercial_design": {
+    "rating": 1018.5,
+    "ci": [
+     1012.9,
+     1024.1
+    ],
+    "votes": 67584,
+    "rank": 81
+   }
+  },
+  "FLUX.1 [dev] (FP8)": {
+   "organization": "bfl",
+   "license": "Open",
+   "overall": {
+    "rating": 969.4,
+    "ci": [
+     965.6,
+     973.1
+    ],
+    "votes": 49221,
+    "rank": 83
+   },
+   "commercial_design": {
+    "rating": 991.0,
+    "ci": [
+     982.3,
+     999.7
+    ],
+    "votes": 6410,
+    "rank": 83
+   }
+  },
+  "DALL-E 3": {
+   "organization": "openai",
+   "license": "Proprietary",
+   "overall": {
+    "rating": 967.6,
+    "ci": [
+     963.9,
+     971.4
+    ],
+    "votes": 238121,
+    "rank": 84
+   },
+   "commercial_design": {
+    "rating": 986.8,
+    "ci": [
+     981.2,
+     992.5
+    ],
+    "votes": 55897,
+    "rank": 84
+   }
+  },
+  "FLUX.1 Kontext [dev]": {
+   "organization": "bfl",
+   "license": "flux-1-dev-non-commercial-license",
+   "overall": {
+    "rating": 941.4,
+    "ci": [
+     937.6,
+     945.2
+    ],
+    "votes": 214288,
+    "rank": 85
+   },
+   "commercial_design": {
+    "rating": 965.2,
+    "ci": [
+     959.7,
+     970.7
+    ],
+    "votes": 58127,
+    "rank": 85
+   }
+  },
+  "Stable Diffusion 3.5 Large": {
+   "organization": "",
+   "license": "Open",
+   "overall": {
+    "rating": 938.3,
+    "ci": [
+     933.8,
+     942.8
+    ],
+    "votes": 23396,
+    "rank": 86
+   },
+   "commercial_design": {
+    "rating": 936.7,
+    "ci": [
+     925.7,
+     947.6
+    ],
+    "votes": 3051,
+    "rank": 86
+   }
+  },
+  "BAGEL": {
+   "organization": "bytedance",
+   "license": "Apache 2.0",
+   "overall": {
+    "rating": 897.2,
+    "ci": [
+     891.4,
+     903.0
+    ],
+    "votes": 12307,
+    "rank": 87
+   },
+   "commercial_design": {
+    "rating": 887.7,
+    "ci": [
+     877.2,
+     898.2
+    ],
+    "votes": 3276,
+    "rank": 87
+   }
+  }
+ }
+}

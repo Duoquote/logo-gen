@@ -1,0 +1,458 @@
+# logo-gen
+
+> A local web app for making logo marks and app icons with image models. A chat model writes a few distinct design briefs from your description, each image model gets the brief rewritten in the prompt style it reads best, and the models render them: cloud models through OpenRouter, or local diffusion models on your own GPU. It runs on your machine with a web UI and a JSON HTTP API on `http://127.0.0.1:7860`.
+
+Start it from the project folder. The first run sets up `uv`, `.venv` and the frontend (about a minute); later runs take a few seconds. It prints the URL when it's ready:
+
+```sh
+./launch.sh                 # macOS, Linux, Git Bash
+.\launch.cmd                # Windows cmd or PowerShell
+npm start -- --port 8000    # either, through Node or Bun
+```
+
+Options: `--port 7860`, `--host 0.0.0.0` to listen beyond localhost, `--with-local` to install local model support (PyTorch) up front, `--dev` for the Vite dev server.
+
+Config and keys:
+
+- The OpenRouter key is `OPENROUTER_KEY` in `.env` in the project folder (git ignores it). Set it in the UI under Settings, or with `PUT /api/secrets` and `{"name": "OPENROUTER_KEY", "value": "..."}`, which checks the key with OpenRouter before saving. A Hugging Face token for gated local models is `HF_TOKEN` the same way. Never print, log or commit either value; `GET /api/settings` only reports whether each is set.
+- Settings live in `data/settings.json`. Read them with `GET /api/settings` and change any subset with `PUT /api/settings` (for example `{"image_models": ["recraft/recraft-v4.1-flash"], "images_per_prompt": 2}`).
+- The library (images, chats, spend) is `data/library.sqlite3`. Images are files under `output/`, served at `/api/files/<path>`; add `?download=1` to download.
+
+The quickest way to get images, then poll the job:
+
+```sh
+# brief in, directions written by the chat model, images rendered by the selected models
+curl -s -X POST localhost:7860/api/generate/quick -H 'Content-Type: application/json' \
+  -d '{"brief": "An icon for a small Python geometry library", "count": 2}'
+# -> {"id": "4f1c...", "status": "running", ...}
+
+curl -s localhost:7860/api/jobs/4f1c...
+# -> {"status": "done", "image_ids": ["a1b2...", ...], "cost": 0.014, "errors": [], ...}
+
+curl -s 'localhost:7860/api/images?ids=a1b2...,c3d4...'   # each has "url", "prompt", "model", "cost"
+```
+
+Every long operation is a job: `POST` returns the job, then poll `GET /api/jobs/<id>` about once a second until `status` is `done`, `error` or `cancelled`. `image_ids` fills in while it runs. `POST /api/jobs/<id>/cancel` stops it. `GET /api/jobs` lists recent jobs.
+
+Other calls you'll need:
+
+- Your own prompts: `POST /api/generate` with `{"prompts": [{"prompt": "...", "concept": "short name", "style": ""}], "models": ["recraft/recraft-v4.1-flash"], "images_per_prompt": 2}`. Leave `models` out to use the ones in settings. A plain `prompt` gets light logo framing per model. Pass a `brief` (the object the designer writes, see below) instead and each model gets its own prompt; add `"verbatim": true` to send `prompt` exactly as written, or `"overrides": {"<model id>": {"prompt": "..."}}` for one model.
+- What each model will be sent, without generating: `POST /api/prompts/render` with the same `prompts` and `models`. `GET /api/prompts/profiles` lists the per-model prompt profiles and which one each model uses.
+- Every image keeps what was actually sent: `prompt` is the exact text, plus `negative_prompt`, `params` (the extra request options), `profile` and the `brief`. `POST /api/images/<id>/regenerate` with `{"prompt": "...", "count": 2}` runs an edited prompt on the same model (a job; results become children of the image).
+- Variations of an image: `POST /api/images/<id>/variations` with `{"count": 4, "mode": "remix"}` (new prompts close to the original) or `"reroll"` (same prompt, new seeds). It's a job.
+- Upscale: `POST /api/images/<id>/upscale` with `{"method": "lanczos", "scale": 2}`. Methods: `lanczos` (fast, CPU), `realesrgan-anime` and `realesrgan-general` (need local model support; minutes per image on a CPU). Returns the new image right away, not a job.
+- Remove the background: `POST /api/images/<id>/remove-background` with `{"method": "ai"}` (rembg, CPU is fine) or `{"method": "color", "tolerance": 30}` (keys out the corner color). Returns the new image.
+- Upscales and background removals are kept as children of the original. `PUT /api/images/<id>/primary` with `{"child_id": "..."}` marks the version to use.
+- Models: `GET /api/openrouter/models` (the live catalog with prices, cached 10 minutes), `GET /api/models/rankings` (quality, value and popularity per image model), `GET /api/local-models`.
+- Local models: `POST /api/local-models/<id>/install` (download with progress in `GET /api/local-models`), `/cancel`, `DELETE /api/local-models/<id>`, and `POST /api/local-models/<id>/calibrate` for a speed test (a job). Use a local model as `local/<id>`, for example `local/zimage-turbo`.
+- The designer chat: `POST /api/chats`, then `POST /api/chats/<id>/messages` with `{"content": "..."}`. The reply runs on the server; follow it with `GET /api/chats/<id>/messages/<reply_id>/stream` (server-sent events) or poll `GET /api/chats/<id>` until no message has `status` `streaming`. Directions it proposes are in that message's `prompts`. Each has `concept`, `style`, a readable `prompt` summary and a `brief` with `mark_type`, `format`, `subject`, `composition`, `shape_language`, `style`, `palette` (`[{"name", "hex"}]`), `background`, `text` (exact wording, or empty for none) and `avoid`. Send them to `POST /api/generate` unchanged.
+- Reactions: `POST /api/feedback` with `{"kind": "like" | "dislike" | "unrate" | "pick", "image_id": "..."}` (`pick` is "use this direction", `unrate` clears a thumbs rating). The designer learns from them and from feedback you type: `GET /api/preferences?chat_id=<id>` shows what it learned and the text it adds to its system prompt, `DELETE /api/preferences?chat_id=<id>` (or `?scope=global`) forgets it.
+
+Spend and caps:
+
+- Every OpenRouter call is recorded from the `usage` OpenRouter returns. `GET /api/spend` is the total, `GET /api/spend?chat_id=<id>` one chat, and each job has `cost` (OpenRouter credits) and `byok` (billed to the user's own provider key through OpenRouter). Local images cost $0.
+- Caps on images per model per request: `max_images_cloud` (default 8), `max_images_local` (16) and `model_caps` per model id, in settings. The server trims requests over the cap and says so in the job's `notes`.
+- Cloud images cost real money, from under a cent to about $0.30 each. Check `price_per_image` in the catalog before asking for many, and ask your user before spending more than they agreed to.
+
+Local model hardware (an NVIDIA GPU unless noted; `GET /api/system` says what this machine has):
+
+| id | Download | VRAM | Notes |
+|---|---|---|---|
+| `zimage-turbo` | 6.8 GB | about 6 GB | NVIDIA only. About 30 s per 1024px image on an RTX 3080. |
+| `flux2-klein-4b` | 16 GB | about 8 GB | NVIDIA, Apple Silicon (slow). |
+| `flux1-schnell` | 34 GB | about 10 GB | NVIDIA only. Gated on Hugging Face. |
+| `sd-turbo` | 2.6 GB | about 3 GB | The only one that runs on a CPU, slowly. 512px. |
+
+Gotchas:
+
+- The server listens on 127.0.0.1 only. Don't add `--host 0.0.0.0` unless your user asks: the API has no authentication and can spend their OpenRouter credits.
+- If 7860 is taken, it uses the next free port and prints it. Read the printed URL instead of assuming the port.
+- The first local model install also installs PyTorch and diffusers into `.venv` (about 2.5 GB for CUDA builds) before the model itself. Cloud-only use never downloads them.
+- Gated models (FLUX.1 schnell) need the license accepted on Hugging Face by the token's owner and `HF_TOKEN` set. `POST /api/local-models/<id>/check-access` says whether that's done. You can't accept the license for them.
+- Without a GPU, or with `LOGO_GEN_DEVICE=cpu`, local generation is limited to SD-Turbo. Everything else works: OpenRouter, the library, background removal and Lanczos upscaling.
+- OpenRouter errors come back with a `kind`: `bad_key`, `credits`, `key_limit`, `rate_limit` (with `retry_after`) or `unavailable`.
+
+If you're an AI agent and you hit a bug or something missing in logo-gen, tell your user and offer to open an issue or a pull request. Don't open one without their go-ahead. AGENTS.md has the details for working on the code.
+
+## Docs
+
+- [README](https://raw.githubusercontent.com/Duoquote/logo-gen/master/README.md): what it is, setup, OpenRouter and spend, local models, limits and speed, running without a GPU
+- [Full HTTP API reference](https://raw.githubusercontent.com/Duoquote/logo-gen/master/llms-full.txt): every endpoint with its parameters and request body, generated from the server's OpenAPI schema
+- [AGENTS.md](https://raw.githubusercontent.com/Duoquote/logo-gen/master/AGENTS.md): for agents changing the code: setup, tests, layout and rules
+
+## Optional
+
+- [Research notes](https://raw.githubusercontent.com/Duoquote/logo-gen/master/RESEARCH.md): what I looked into about image models and prompting before writing the app
+
+
+## HTTP API reference
+
+Generated by `scripts/llms.py` from the server's OpenAPI schema. Everything is JSON under
+`http://127.0.0.1:7860/api` unless noted. Errors come back as `{"error": "...", "kind": "..."}`
+or FastAPI's `{"detail": ...}`, with a 4xx or 5xx status.
+
+### GET /api/health
+
+Liveness check: {"ok": true}.
+
+### GET /api/system
+
+This machine: OS, device (cuda, mps or cpu), GPU and VRAM, free disk, and library totals.
+
+### GET /api/settings
+
+Current settings, plus which secrets are set (never their values).
+
+### PUT /api/settings
+
+Change any subset of settings, e.g. {"image_models": [...], "images_per_prompt": 2}. Returns the full settings.
+
+Body (object):
+
+### POST /api/settings/reset
+
+### PUT /api/secrets
+
+Set or clear OPENROUTER_KEY or HF_TOKEN in .env. An OpenRouter key is checked with OpenRouter first.
+
+Body (SecretIn):
+  - `name`: str
+  - `value`: str = ''
+
+### GET /api/openrouter/key
+
+Whether the saved OpenRouter key works, what it has spent and its limit.
+
+### GET /api/openrouter/models
+
+The live OpenRouter catalog, split into chat and image models, with prices and capabilities. Cached 10
+minutes; force=true refetches.
+
+Query:
+  - `force`: bool = False
+
+### GET /api/models/rankings
+
+Quality (LMArena), value and popularity (OpenRouter usage) for every image model we can use.
+
+Query:
+  - `refresh`: bool = False
+
+### GET /api/llm/local
+
+### GET /api/llm/claude-cli
+
+### GET /api/local-models
+
+Local models with install state, download progress, device support, batch size and caps.
+
+### GET /api/local-stack
+
+### POST /api/local-stack/install
+
+### POST /api/local-models/{model_id}/calibrate
+
+Speed test for a local model: times batch sizes and peak VRAM. Returns a job; its result has the options.
+
+### POST /api/local-models/{model_id}/install
+
+Start or resume downloading a local model. Progress shows in GET /api/local-models.
+
+### POST /api/local-models/{model_id}/cancel
+
+Pause a download. Installing again resumes it.
+
+### DELETE /api/local-models/{model_id}
+
+Delete a local model's files.
+
+### POST /api/local-models/{model_id}/check-access
+
+For gated models: whether HF_TOKEN can download it.
+
+### GET /api/jobs
+
+Recent jobs, newest first.
+
+### GET /api/jobs/{job_id}
+
+One job: status (running, done, error, cancelled), done/total, message, image_ids, cost, byok, notes, errors.
+
+### POST /api/jobs/{job_id}/cancel
+
+Cancel a running job.
+
+### POST /api/generate
+
+Render your own prompts with the given (or default) image models. Returns a job.
+
+Body (GenerateIn):
+  - `prompts`: list[PromptIn]
+  - `models`: list[str] | null (optional)
+  - `images_per_prompt`: int | null (optional)
+  - `references`: list[str] (optional)
+  - `chat_id`: str | null (optional)
+  - `message_id`: int | null (optional)
+  - PromptIn:
+    - `prompt`: str = ''
+    - `concept`: str = ''
+    - `style`: str = ''
+    - `brief`: object | null (optional)
+    - `overrides`: object | null (optional)
+    - `verbatim`: bool = False
+    - `negative_prompt`: str = ''
+
+### POST /api/generate/quick
+
+Brief in: the chat model writes `count` directions, then each is rendered. Returns a job.
+
+Body (QuickIn):
+  - `brief`: str
+  - `count`: int | null (optional)
+  - `enhance`: bool = True
+  - `models`: list[str] | null (optional)
+  - `images_per_prompt`: int | null (optional)
+  - `references`: list[str] (optional)
+
+### POST /api/images/{image_id}/variations
+
+New images close to this one (mode remix writes new prompts; reroll keeps the prompt with new seeds). Returns a job.
+
+Body (VariationIn):
+  - `count`: int = 4
+  - `mode`: str = 'remix'
+  - `instruction`: str = ''
+  - `model`: str | null (optional)
+
+### POST /api/images/{image_id}/regenerate
+
+Run a hand-edited prompt on this image's model. Results land under it as variations.
+
+Body (RegenerateIn):
+  - `prompt`: str
+  - `negative_prompt`: str = ''
+  - `count`: int = 1
+  - `model`: str | null (optional)
+
+### GET /api/prompts/profiles
+
+The prompt profiles, and which one each selected or local model uses.
+
+### POST /api/prompts/render
+
+Preview what each model would be sent for each direction, without generating.
+
+Body (RenderIn):
+  - `prompts`: list[PromptIn]
+  - `models`: list[str] | null (optional)
+  - `chat_id`: str | null (optional)
+  - PromptIn:
+    - `prompt`: str = ''
+    - `concept`: str = ''
+    - `style`: str = ''
+    - `brief`: object | null (optional)
+    - `overrides`: object | null (optional)
+    - `verbatim`: bool = False
+    - `negative_prompt`: str = ''
+
+### GET /api/preferences
+
+What the designer learned from reactions and typed feedback: one chat's profile, the cross-chat one,
+and the exact text it adds to the designer's system prompt.
+
+Query:
+  - `chat_id`: str | null
+
+### DELETE /api/preferences
+
+Forget what the designer learned in one chat (chat_id), or across chats (scope=global).
+The feedback events themselves stay.
+
+Query:
+  - `chat_id`: str | null
+  - `scope`: str | null
+
+### GET /api/chats
+
+Designer chats with at least one message, newest activity first, with spend and a thumbnail. q searches titles and messages.
+
+Query:
+  - `q`: str | null
+
+### POST /api/chats
+
+An empty chat.
+
+Body (ChatIn):
+  - `title`: str | null (optional)
+  - `pinned`: bool | null (optional)
+
+### GET /api/designer/last
+
+The chat the designer had open last, from any browser.
+
+### GET /api/chats/{chat_id}
+
+A chat with the visible branch of messages (each with siblings, cost, status and the images made from it), its
+jobs, spend, and the id of a reply that's still running.
+
+### PATCH /api/chats/{chat_id}
+
+Rename or pin a chat.
+
+Body (ChatIn):
+  - `title`: str | null (optional)
+  - `pinned`: bool | null (optional)
+
+### DELETE /api/chats/{chat_id}
+
+Delete a chat (soft: POST .../restore undoes it for a week).
+
+### POST /api/chats/{chat_id}/open
+
+Remember this as the chat the designer opens next time.
+
+### POST /api/chats/{chat_id}/restore
+
+Undo a chat delete.
+
+### POST /api/chats/{chat_id}/messages
+
+Add a user message and start the designer's reply on the server. Returns user_id and reply_id; follow the
+reply with the stream endpoint or by polling the chat. edit_of=<message id> sends an edited copy of that
+message as a new branch.
+
+Body (MessageIn):
+  - `content`: str
+  - `images`: list[str] (optional)
+  - `parent_id`: int | null (optional)
+  - `edit_of`: int | null (optional)
+
+### POST /api/chats/{chat_id}/messages/{message_id}/regenerate
+
+A new reply to the same user message. The old reply stays as a sibling.
+
+### POST /api/chats/{chat_id}/messages/{message_id}/stop
+
+### GET /api/chats/{chat_id}/messages/{message_id}/stream
+
+SSE for one reply. Resumes after `after` or the Last-Event-ID header; otherwise starts with a snapshot.
+
+Query:
+  - `after`: int | null
+
+### PUT /api/chats/{chat_id}/active
+
+Show another branch: the given message and the newest replies below it.
+
+Body (ActiveIn):
+  - `message_id`: int
+
+### DELETE /api/chats/{chat_id}/messages/{message_id}
+
+Delete a message and everything after it. Returns a stamp to undo with.
+
+### POST /api/chats/{chat_id}/messages/{message_id}/restore
+
+Body (RestoreIn):
+  - `stamp`: float
+
+### POST /api/feedback
+
+Record a reaction to an image: like, dislike, unrate (clear the rating) or pick ("use this direction").
+
+The designer learns from these: see GET /api/preferences.
+
+Body (FeedbackIn):
+  - `kind`: str
+  - `image_id`: str | null (optional)
+  - `chat_id`: str | null (optional)
+  - `message_id`: int | null (optional)
+  - `data`: object (optional)
+
+### GET /api/feedback
+
+Query:
+  - `since_id`: int = 0
+  - `chat_id`: str | null
+  - `limit`: int = 500
+
+### GET /api/images
+
+Library images, newest first. Filter by kind (generated, upscaled, cleaned), favorite, q (text search),
+chat_id, job_id or ids (comma separated).
+
+Query:
+  - `kind`: str | null
+  - `favorite`: bool = False
+  - `q`: str | null
+  - `chat_id`: str | null
+  - `job_id`: str | null
+  - `ids`: str | null
+  - `limit`: int = 200
+  - `offset`: int = 0
+
+### GET /api/images/{image_id}
+
+One image with its parent and children (upscales, cleaned copies, variations).
+
+### PATCH /api/images/{image_id}
+
+Set favorite or note.
+
+Body (ImagePatch):
+  - `favorite`: bool | null (optional)
+  - `note`: str | null (optional)
+
+### DELETE /api/images/{image_id}
+
+Delete an image, its file and its children.
+
+### PUT /api/images/{image_id}/primary
+
+Mark an upscaled or cleaned child as the version to use (child_id null clears it).
+
+Body (PrimaryIn):
+  - `child_id`: str | null (optional)
+
+### GET /api/spend
+
+What has been spent: OpenRouter credits, BYOK, by kind, image counts. Optionally for one chat.
+
+Query:
+  - `chat_id`: str | null
+
+### GET /api/tools
+
+Upscale methods and scales, and background removal models, available on this machine.
+
+### POST /api/images/{image_id}/upscale
+
+Upscale an image (methods from GET /api/tools). Returns the new image, kept as a child of the original.
+
+Body (UpscaleIn):
+  - `method`: str = 'realesrgan-anime'
+  - `scale`: int = 4
+
+### POST /api/images/{image_id}/remove-background
+
+Remove the background with an AI model (method ai) or by keying out a color (method color). Returns the new image as a child.
+
+Body (BackgroundIn):
+  - `method`: str = 'ai'
+  - `model`: str = 'isnet-general-use'
+  - `alpha_matting`: bool = False
+  - `erode_pixels`: int = 0
+  - `tolerance`: int = 30
+  - `color`: str | null (optional)
+
+### POST /api/uploads
+
+Upload reference images. Returns their paths for the references or images fields.
+
+Body: multipart form data (`images`: one or more image files).
+
+### GET /api/files/{rel}
+
+Query:
+  - `download`: bool = False

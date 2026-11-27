@@ -27,24 +27,24 @@ function RootLayout() {
 
   return (
     <div className="flex h-svh flex-col">
-      <header className="flex h-12 shrink-0 items-center gap-6 border-b px-4">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-2 sm:gap-6 sm:px-4">
         <Link to="/" className="flex items-center gap-2 font-heading text-sm font-semibold">
           <img src="/favicon.png" alt="" className="size-6" />
-          logo-gen
+          <span className="hidden sm:inline">logo-gen</span>
         </Link>
-        <nav className="flex items-center gap-1">
+        <nav className="flex min-w-0 items-center gap-0.5 overflow-x-auto sm:gap-1">
           {NAV.map((n) => (
             <Link
               key={n.to}
               to={n.to}
               activeOptions={{ exact: n.to === "/" }}
-              className="px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground data-[status=active]:text-foreground data-[status=active]:underline data-[status=active]:decoration-primary data-[status=active]:decoration-2 data-[status=active]:underline-offset-[18px]"
+              className="shrink-0 px-1.5 py-1.5 text-xs font-medium sm:px-2.5 text-muted-foreground hover:text-foreground data-[status=active]:text-foreground data-[status=active]:underline data-[status=active]:decoration-primary data-[status=active]:decoration-2 data-[status=active]:underline-offset-[18px]"
             >
               {n.label}
             </Link>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <JobsMenu />
           <Button
             variant="ghost"

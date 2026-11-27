@@ -40,6 +40,8 @@ class Settings(BaseModel):
     # Image generation. OpenRouter ids as-is, local models as "local/<id>".
     image_models: list[str] = Field(default_factory=lambda: ["recraft/recraft-v4.1-flash"])
     images_per_prompt: int = 1
+    # How image model lists are ordered: quality | value | cheapest | popular | local | newest | name
+    image_sort: str = "quality"
     variations: int = 4
     aspect_ratio: str = "1:1"
     transparent_background: bool = False

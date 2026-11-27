@@ -95,7 +95,7 @@ def settings(monkeypatch, tmp_path):
     monkeypatch.setattr(paths, "DB_FILE", tmp_path / "test.sqlite3")
     monkeypatch.setattr(paths, "DATA_DIR", tmp_path)
     monkeypatch.setattr(library, "_conn", None)
-    monkeypatch.setattr(preferences, "_ready", False)
+    monkeypatch.setattr(preferences, "_ready", None)
     yield s
     if library._conn is not None:
         library._conn.close()
@@ -323,14 +323,22 @@ def _image(tmp_path, name, brief, model="recraft/recraft-v4.1-flash", chat_id="c
                              style=brief["style"])
 
 
+def _react(kind, image_id):
+    """A reaction the way the chat UI records it: a feedback_events row, then the sync."""
+    from logo_gen import chats
+
+    chats.add_feedback(kind, image_id=image_id)
+    preferences.sync_feedback()
+
+
 def test_feedback_builds_a_profile_and_feeds_the_designer(settings, tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "OUTPUT_DIR", tmp_path / "out")
-    library.create_chat("t")
     liked = _image(tmp_path, "a", BRIEFS["geo-saas"])
     disliked = _image(tmp_path, "b", BRIEFS["coffee-wordmark"] | {"style": "3d render, glossy"}, model="openai/gpt-image-1-mini")
 
-    preferences.apply_event(preferences.FeedbackEvent("pick", liked["id"]))
-    p = preferences.apply_event(preferences.FeedbackEvent("dislike", disliked["id"]))
+    _react("pick", liked["id"])
+    _react("dislike", disliked["id"])
+    p = preferences.profile("chat:c1")
     assert p["liked"]["mark_type"] == ["pictorial"]
     assert "flat vector" in p["liked"]["style"]
     assert "3d render" in p["disliked"]["style"]
@@ -344,9 +352,9 @@ def test_feedback_builds_a_profile_and_feeds_the_designer(settings, tmp_path, mo
     # Only visual attributes reach image prompts; naming "the P lettermark" there would draw it.
     assert preferences.render_hints("c1") == ["gradients", "3d render"]
 
-    # Votes replace each other, and clear removes them.
-    preferences.apply_event(preferences.FeedbackEvent("clear", disliked["id"]))
-    assert "disliked" not in json.dumps(preferences.profile("chat:c1")["disliked"])
+    # unrate clears a thumbs rating.
+    _react("unrate", disliked["id"])
+    assert "3d render" not in preferences.profile("chat:c1")["disliked"].get("style", [])
     # A later "more of" cancels an older "less of".
     preferences.add_notes("c1", more=["gradients"])
     assert "gradients" not in preferences.profile("chat:c1")["less"]
@@ -357,11 +365,61 @@ def test_feedback_builds_a_profile_and_feeds_the_designer(settings, tmp_path, mo
     assert not preferences.profile("global")["empty"]
 
 
+def test_a_pick_outlasts_thumbs_but_not_a_dislike(settings, tmp_path, monkeypatch):
+    monkeypatch.setattr(paths, "OUTPUT_DIR", tmp_path / "out")
+    img = _image(tmp_path, "a", BRIEFS["geo-saas"])
+    _react("pick", img["id"])
+    _react("like", img["id"])
+    _react("unrate", img["id"])
+    assert preferences.profile("chat:c1")["counts"]["pick"] == 1
+    _react("dislike", img["id"])
+    counts = preferences.profile("chat:c1")["counts"]
+    assert counts["pick"] == 0 and counts["dislike"] == 1
+
+
+def test_sync_reads_each_event_once_and_skips_deleted_images(settings, tmp_path, monkeypatch):
+    from logo_gen import chats
+
+    monkeypatch.setattr(paths, "OUTPUT_DIR", tmp_path / "out")
+    img = _image(tmp_path, "a", BRIEFS["geo-saas"])
+    gone = _image(tmp_path, "b", BRIEFS["fintech-icon"])
+    chats.add_feedback("like", image_id=img["id"])
+    chats.add_feedback("like", image_id=gone["id"])
+    library.delete_image(gone["id"])
+    chats.add_feedback("pick", chat_id="c1")  # no image: nothing to learn
+    assert preferences.sync_feedback() == 1
+    assert preferences.sync_feedback() == 0
+
+
+def test_api_feedback_updates_what_the_designer_learned(home):
+    """POST /api/feedback (the chat UI's thumbs) shows up in GET /api/preferences."""
+    import asyncio
+
+    import httpx
+
+    from logo_gen import server
+
+    paths.GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+    img = _image(home, "a", BRIEFS["geo-saas"])
+
+    async def go():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=server.app), base_url="http://t") as c:
+            r = await c.post("/api/feedback", json={"kind": "like", "image_id": img["id"]})
+            assert r.status_code == 200 and r.json()["kind"] == "like"
+            prefs = (await c.get("/api/preferences", params={"chat_id": "c1"})).json()
+            assert prefs["chat"]["liked"]["mark_type"] == ["pictorial"]
+            assert "pictorial" in prefs["designer_context"]
+            await c.post("/api/feedback", json={"kind": "unrate", "image_id": img["id"]})
+            assert (await c.get("/api/preferences", params={"chat_id": "c1"})).json()["chat"]["empty"]
+
+    asyncio.run(go())
+
+
 def test_global_taste_can_be_turned_off(settings, tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "OUTPUT_DIR", tmp_path / "out")
     settings.use_global_taste = False
     img = _image(tmp_path, "a", BRIEFS["geo-saas"])
-    preferences.apply_event(preferences.FeedbackEvent("like", img["id"]))
+    _react("like", img["id"])
     assert preferences.profile("global")["empty"]
     assert not preferences.profile("chat:c1")["empty"]
 

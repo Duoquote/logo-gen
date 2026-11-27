@@ -1,0 +1,85 @@
+# logo-gen
+
+> A local web app for making logo marks and app icons with image models. A chat model writes a few distinct design briefs from your description, each image model gets the brief rewritten in the prompt style it reads best, and the models render them: cloud models through OpenRouter, or local diffusion models on your own GPU. It runs on your machine with a web UI and a JSON HTTP API on `http://127.0.0.1:7860`.
+
+Start it from the project folder. The first run sets up `uv`, `.venv` and the frontend (about a minute); later runs take a few seconds. It prints the URL when it's ready:
+
+```sh
+./launch.sh                 # macOS, Linux, Git Bash
+.\launch.cmd                # Windows cmd or PowerShell
+npm start -- --port 8000    # either, through Node or Bun
+```
+
+Options: `--port 7860`, `--host 0.0.0.0` to listen beyond localhost, `--with-local` to install local model support (PyTorch) up front, `--dev` for the Vite dev server.
+
+Config and keys:
+
+- The OpenRouter key is `OPENROUTER_KEY` in `.env` in the project folder (git ignores it). Set it in the UI under Settings, or with `PUT /api/secrets` and `{"name": "OPENROUTER_KEY", "value": "..."}`, which checks the key with OpenRouter before saving. A Hugging Face token for gated local models is `HF_TOKEN` the same way. Never print, log or commit either value; `GET /api/settings` only reports whether each is set.
+- Settings live in `data/settings.json`. Read them with `GET /api/settings` and change any subset with `PUT /api/settings` (for example `{"image_models": ["recraft/recraft-v4.1-flash"], "images_per_prompt": 2}`).
+- The library (images, chats, spend) is `data/library.sqlite3`. Images are files under `output/`, served at `/api/files/<path>`; add `?download=1` to download.
+
+The quickest way to get images, then poll the job:
+
+```sh
+# brief in, directions written by the chat model, images rendered by the selected models
+curl -s -X POST localhost:7860/api/generate/quick -H 'Content-Type: application/json' \
+  -d '{"brief": "An icon for a small Python geometry library", "count": 2}'
+# -> {"id": "4f1c...", "status": "running", ...}
+
+curl -s localhost:7860/api/jobs/4f1c...
+# -> {"status": "done", "image_ids": ["a1b2...", ...], "cost": 0.014, "errors": [], ...}
+
+curl -s 'localhost:7860/api/images?ids=a1b2...,c3d4...'   # each has "url", "prompt", "model", "cost"
+```
+
+Every long operation is a job: `POST` returns the job, then poll `GET /api/jobs/<id>` about once a second until `status` is `done`, `error` or `cancelled`. `image_ids` fills in while it runs. `POST /api/jobs/<id>/cancel` stops it. `GET /api/jobs` lists recent jobs.
+
+Other calls you'll need:
+
+- Your own prompts: `POST /api/generate` with `{"prompts": [{"prompt": "...", "concept": "short name", "style": ""}], "models": ["recraft/recraft-v4.1-flash"], "images_per_prompt": 2}`. Leave `models` out to use the ones in settings. A plain `prompt` gets light logo framing per model. Pass a `brief` (the object the designer writes, see below) instead and each model gets its own prompt; add `"verbatim": true` to send `prompt` exactly as written, or `"overrides": {"<model id>": {"prompt": "..."}}` for one model.
+- What each model will be sent, without generating: `POST /api/prompts/render` with the same `prompts` and `models`. `GET /api/prompts/profiles` lists the per-model prompt profiles and which one each model uses.
+- Every image keeps what was actually sent: `prompt` is the exact text, plus `negative_prompt`, `params` (the extra request options), `profile` and the `brief`. `POST /api/images/<id>/regenerate` with `{"prompt": "...", "count": 2}` runs an edited prompt on the same model (a job; results become children of the image).
+- Variations of an image: `POST /api/images/<id>/variations` with `{"count": 4, "mode": "remix"}` (new prompts close to the original) or `"reroll"` (same prompt, new seeds). It's a job.
+- Upscale: `POST /api/images/<id>/upscale` with `{"method": "lanczos", "scale": 2}`. Methods: `lanczos` (fast, CPU), `realesrgan-anime` and `realesrgan-general` (need local model support; minutes per image on a CPU). Returns the new image right away, not a job.
+- Remove the background: `POST /api/images/<id>/remove-background` with `{"method": "ai"}` (rembg, CPU is fine) or `{"method": "color", "tolerance": 30}` (keys out the corner color). Returns the new image.
+- Upscales and background removals are kept as children of the original. `PUT /api/images/<id>/primary` with `{"child_id": "..."}` marks the version to use.
+- Models: `GET /api/openrouter/models` (the live catalog with prices, cached 10 minutes), `GET /api/models/rankings` (quality, value and popularity per image model), `GET /api/local-models`.
+- Local models: `POST /api/local-models/<id>/install` (download with progress in `GET /api/local-models`), `/cancel`, `DELETE /api/local-models/<id>`, and `POST /api/local-models/<id>/calibrate` for a speed test (a job). Use a local model as `local/<id>`, for example `local/zimage-turbo`.
+- The designer chat: `POST /api/chats`, then `POST /api/chats/<id>/messages` with `{"content": "..."}`. The reply runs on the server; follow it with `GET /api/chats/<id>/messages/<reply_id>/stream` (server-sent events) or poll `GET /api/chats/<id>` until no message has `status` `streaming`. Directions it proposes are in that message's `prompts`. Each has `concept`, `style`, a readable `prompt` summary and a `brief` with `mark_type`, `format`, `subject`, `composition`, `shape_language`, `style`, `palette` (`[{"name", "hex"}]`), `background`, `text` (exact wording, or empty for none) and `avoid`. Send them to `POST /api/generate` unchanged.
+- Reactions: `POST /api/feedback` with `{"kind": "like" | "dislike" | "unrate" | "pick", "image_id": "..."}` (`pick` is "use this direction", `unrate` clears a thumbs rating). The designer learns from them and from feedback you type: `GET /api/preferences?chat_id=<id>` shows what it learned and the text it adds to its system prompt, `DELETE /api/preferences?chat_id=<id>` (or `?scope=global`) forgets it.
+
+Spend and caps:
+
+- Every OpenRouter call is recorded from the `usage` OpenRouter returns. `GET /api/spend` is the total, `GET /api/spend?chat_id=<id>` one chat, and each job has `cost` (OpenRouter credits) and `byok` (billed to the user's own provider key through OpenRouter). Local images cost $0.
+- Caps on images per model per request: `max_images_cloud` (default 8), `max_images_local` (16) and `model_caps` per model id, in settings. The server trims requests over the cap and says so in the job's `notes`.
+- Cloud images cost real money, from under a cent to about $0.30 each. Check `price_per_image` in the catalog before asking for many, and ask your user before spending more than they agreed to.
+
+Local model hardware (an NVIDIA GPU unless noted; `GET /api/system` says what this machine has):
+
+| id | Download | VRAM | Notes |
+|---|---|---|---|
+| `zimage-turbo` | 6.8 GB | about 6 GB | NVIDIA only. About 30 s per 1024px image on an RTX 3080. |
+| `flux2-klein-4b` | 16 GB | about 8 GB | NVIDIA, Apple Silicon (slow). |
+| `flux1-schnell` | 34 GB | about 10 GB | NVIDIA only. Gated on Hugging Face. |
+| `sd-turbo` | 2.6 GB | about 3 GB | The only one that runs on a CPU, slowly. 512px. |
+
+Gotchas:
+
+- The server listens on 127.0.0.1 only. Don't add `--host 0.0.0.0` unless your user asks: the API has no authentication and can spend their OpenRouter credits.
+- If 7860 is taken, it uses the next free port and prints it. Read the printed URL instead of assuming the port.
+- The first local model install also installs PyTorch and diffusers into `.venv` (about 2.5 GB for CUDA builds) before the model itself. Cloud-only use never downloads them.
+- Gated models (FLUX.1 schnell) need the license accepted on Hugging Face by the token's owner and `HF_TOKEN` set. `POST /api/local-models/<id>/check-access` says whether that's done. You can't accept the license for them.
+- Without a GPU, or with `LOGO_GEN_DEVICE=cpu`, local generation is limited to SD-Turbo. Everything else works: OpenRouter, the library, background removal and Lanczos upscaling.
+- OpenRouter errors come back with a `kind`: `bad_key`, `credits`, `key_limit`, `rate_limit` (with `retry_after`) or `unavailable`.
+
+If you're an AI agent and you hit a bug or something missing in logo-gen, tell your user and offer to open an issue or a pull request. Don't open one without their go-ahead. AGENTS.md has the details for working on the code.
+
+## Docs
+
+- [README](https://raw.githubusercontent.com/Duoquote/logo-gen/master/README.md): what it is, setup, OpenRouter and spend, local models, limits and speed, running without a GPU
+- [Full HTTP API reference](https://raw.githubusercontent.com/Duoquote/logo-gen/master/llms-full.txt): every endpoint with its parameters and request body, generated from the server's OpenAPI schema
+- [AGENTS.md](https://raw.githubusercontent.com/Duoquote/logo-gen/master/AGENTS.md): for agents changing the code: setup, tests, layout and rules
+
+## Optional
+
+- [Research notes](https://raw.githubusercontent.com/Duoquote/logo-gen/master/RESEARCH.md): what I looked into about image models and prompting before writing the app
