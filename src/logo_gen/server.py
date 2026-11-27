@@ -447,17 +447,93 @@ async def generate(body: GenerateIn):
         raise ValueError("No prompts to generate.")
     models = _check_models(body.models)
     refs = _refs(body.references)
-    title = prompts[0]["concept"] or prompts[0]["prompt"][:40]
+    return start_generation(prompts, models, body.images_per_prompt, refs, body.chat_id, body.message_id).to_dict()
+
+
+def start_generation(prompts: list[dict], models: list[str], per: int | None, refs: list[Path],
+                     chat_id: str | None = None, message_id: int | None = None, notes: list[str] | None = None):
+    """Start a generate job. With a chat, its images show inline under message_id."""
+    title = prompts[0].get("concept") or prompts[0].get("prompt", "")[:40]
 
     async def fn(job):
         job.result["prompts"] = prompts
-        await generator.run(job, prompts, models, body.images_per_prompt, refs, chat_id=body.chat_id)
+        job.notes.extend(notes or [])
+        await generator.run(job, prompts, models, per, refs, chat_id=chat_id)
 
     job = jobs.start("generate", title, fn)
-    if body.chat_id:
-        job.chat_id = body.chat_id
-        chats.link_job(job.id, body.chat_id, body.message_id, "generate")
-    return job.to_dict()
+    if chat_id:
+        job.chat_id = chat_id
+        chats.link_job(job.id, chat_id, message_id, "generate")
+    return job
+
+
+def _money(x: float) -> str:
+    return f"${x:.3f}" if x < 0.1 else f"${x:.2f}"
+
+
+async def auto_round(chat_id: str, message_id: int, prompts: list[dict], history: list[dict]) -> str:
+    """Render a designer reply's directions right away, as a server job. Returns a line for the reply.
+
+    Uses the selected image models and images per direction (Settings, or the composer), within the
+    per-model caps. Models that can't run here are skipped with a reason. When the round's estimated
+    cloud cost is more than the key has left under its spending limit, the cloud models are skipped too.
+    """
+    s = get_settings()
+    selected = [m for m in s.image_models if m]
+    if not selected:
+        return "Pick an image model below the message box and press Generate to render these."
+    per = max(1, int(s.images_per_prompt or 1))
+    usable, skipped = [], []
+    for m in selected:
+        if _usable(m):
+            usable.append(m)
+        else:
+            skipped.append(f"{m.removeprefix('local/')} (not installed)" if generator.is_local(m) else f"{m} (no OpenRouter key)")
+    if usable and any(generator.is_local(m) for m in usable):
+        device = system.device_kind()
+        for m in [m for m in usable if generator.is_local(m)]:
+            spec = MODELS.get(m.removeprefix(generator.LOCAL_PREFIX))
+            if spec and spec.support(device) == "no":
+                usable.remove(m)
+                skipped.append(f"{spec.name} (can't run on this machine)")
+    work, cap_notes = generator.plan(usable, prompts, per)
+    parts, cloud_cost, unknown = [], 0.0, []
+    for m, (ps, n) in work.items():
+        count = len(ps) * n
+        name = m.removeprefix("local/") if generator.is_local(m) else m.split("/", 1)[-1]
+        if generator.is_local(m):
+            parts.append(f"{count} on {name} (local, free)")
+            continue
+        price = (await openrouter.model_info(m) or {}).get("price_per_image")
+        if price is None:
+            unknown.append(m)
+            parts.append(f"{count} on {name} (price unknown)")
+        else:
+            cloud_cost += price * count
+            parts.append(f"{count} on {name} (about {_money(price * count)})")
+    cloud = [m for m in work if not generator.is_local(m)]
+    if cloud and cloud_cost > 0:
+        key = await openrouter.key_status()
+        left = key.get("limit_remaining")
+        if isinstance(left, (int, float)) and cloud_cost > left:
+            for m in cloud:
+                work.pop(m)
+                skipped.append(f"{m} (about {_money(cloud_cost)} for this round, but the key has {_money(left)} left)")
+            parts = [p for p in parts if "(local, free)" in p]
+            cloud_cost = 0.0
+    note_skipped = f" Skipped: {'; '.join(skipped)}." if skipped else ""
+    if not work:
+        return f"Not rendering these automatically.{note_skipped} Press Generate when you're ready."
+    refs: list[Path] = []
+    for m in history:
+        refs.extend(_refs(m.get("images") or []))
+    total = sum(len(ps) * n for ps, n in work.values())
+    cost = f" About {_money(cloud_cost)} in all." if cloud_cost > 0 else ""
+    line = f"Rendering {total} image{'s' if total != 1 else ''} now: {', '.join(parts)}.{cost}{note_skipped}"
+    if cap_notes:
+        line += " Some were trimmed to the per-model caps in Settings."
+    start_generation(prompts, list(work), per, refs, chat_id, message_id, notes=[line])
+    return line
 
 
 @app.post("/api/generate/quick")
@@ -637,6 +713,7 @@ async def clear_preferences(chat_id: str | None = None, scope: str | None = None
 class ChatIn(BaseModel):
     title: str | None = None
     pinned: bool | None = None
+    ask_first: bool | None = None  # ask questions before proposing and rendering; unset follows the setting
 
 
 class MessageIn(BaseModel):
@@ -724,9 +801,9 @@ async def open_chat(chat_id: str):
 
 @app.patch("/api/chats/{chat_id}")
 async def update_chat(chat_id: str, body: ChatIn):
-    """Rename or pin a chat."""
+    """Rename or pin a chat, or set whether its designer asks questions before generating (ask_first)."""
     _chat_or_404(chat_id)
-    return chats.update(chat_id, title=body.title, pinned=body.pinned)
+    return chats.update(chat_id, title=body.title, pinned=body.pinned, ask_first=body.ask_first)
 
 
 @app.delete("/api/chats/{chat_id}")

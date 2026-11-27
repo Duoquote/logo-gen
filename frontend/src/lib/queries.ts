@@ -377,7 +377,10 @@ function useChatMutation<T, R>(fn: (vars: T) => Promise<R>, after?: (r: R, vars:
 export const useCreateChat = () => useChatMutation(() => api.post<Chat>("/chats", {}))
 
 export const useUpdateChat = () =>
-  useChatMutation(({ id, ...body }: { id: string; title?: string; pinned?: boolean }) => api.patch<Chat>(`/chats/${id}`, body))
+  useChatMutation(
+    ({ id, ...body }: { id: string; title?: string; pinned?: boolean; ask_first?: boolean }) => api.patch<Chat>(`/chats/${id}`, body),
+    (chat, _v, qc) => qc.invalidateQueries({ queryKey: keys.chat(chat.id) }),
+  )
 
 export const useDeleteChat = () => useChatMutation((id: string) => api.del(`/chats/${id}`))
 

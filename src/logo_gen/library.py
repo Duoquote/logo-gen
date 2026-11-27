@@ -192,6 +192,9 @@ def _migrate_chats(c: sqlite3.Connection) -> None:
         for col in ("pinned INTEGER DEFAULT 0", "deleted_at REAL", "active_leaf INTEGER", "last_opened_at REAL"):
             c.execute(f"ALTER TABLE chats ADD COLUMN {col}")
         c.execute("UPDATE chats SET active_leaf = (SELECT MAX(id) FROM messages m WHERE m.chat_id = chats.id)")
+    if "ask_first" not in _columns(c, "chats"):
+        # Per-chat "ask questions before generating". NULL follows the setting.
+        c.execute("ALTER TABLE chats ADD COLUMN ask_first INTEGER")
 
 
 def _q(sql: str, args: tuple = ()) -> list[sqlite3.Row]:

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowDownIcon, MessageSquareDashedIcon, RefreshCwIcon } from "lucide-react"
+import { ArrowDownIcon, MessageSquareDashedIcon, RefreshCwIcon, SlidersHorizontalIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { AssistantMessage, Directions, UserMessage, type MessageHandlers } from "@/components/chat/message"
@@ -10,6 +10,12 @@ import { ImageDialog } from "@/components/image-dialog"
 import { LearnedButton } from "@/components/learned-panel"
 import { SpendLine } from "@/components/spend"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -148,6 +154,7 @@ function ChatPage() {
           </span>
         )}
         {data && <LearnedButton chatId={data.id} />}
+        {data && <ChatOptions chat={data} />}
       </header>
 
       <div className="relative min-h-0 flex-1">
@@ -218,7 +225,12 @@ function ChatPage() {
                   h={h}
                   directions={
                     m.prompts.length > 0 && m.status !== "streaming" ? (
-                      <Directions prompts={m.prompts} busy={generate.isPending} onGenerate={(p, per) => runGenerate(m, p, per)} />
+                      <Directions
+                        prompts={m.prompts}
+                        busy={generate.isPending}
+                        rendered={(data?.jobs ?? []).some((j) => j.message_id === m.id)}
+                        onGenerate={(p, per) => runGenerate(m, p, per)}
+                      />
                     ) : null
                   }
                 >
@@ -314,6 +326,30 @@ function ChatTitle({ chat }: { chat: Chat }) {
     >
       {chat.title || "Untitled"}
     </button>
+  )
+}
+
+/** Per-chat designer options. "Ask questions before generating" defaults to the setting of the same name. */
+function ChatOptions({ chat }: { chat: Chat }) {
+  const update = useUpdateChat()
+  const settings = useSettings()
+  const asks = chat.ask_first ?? settings.data?.settings.ask_before_generating ?? false
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="icon-sm" variant="ghost" className="shrink-0" aria-label="Chat options" title="Chat options">
+          <SlidersHorizontalIcon />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72 max-w-[calc(100vw-1rem)]">
+        <DropdownMenuCheckboxItem checked={asks} onCheckedChange={(v) => update.mutate({ id: chat.id, ask_first: v === true })}>
+          Ask questions before generating
+        </DropdownMenuCheckboxItem>
+        <p className="px-2 pb-1.5 text-[11px] text-muted-foreground">
+          Off: the designer proposes and renders right away, then asks. For this chat only; the default is in Settings.
+        </p>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
