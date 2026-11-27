@@ -195,6 +195,10 @@ def _migrate_chats(c: sqlite3.Connection) -> None:
     if "ask_first" not in _columns(c, "chats"):
         # Per-chat "ask questions before generating". NULL follows the setting.
         c.execute("ALTER TABLE chats ADD COLUMN ask_first INTEGER")
+    if "auto_generate" not in _columns(c, "chats"):
+        # Per-chat "generate automatically". NULL follows the setting, which is off by default,
+        # so chats from before the switch existed don't start spending on their own.
+        c.execute("ALTER TABLE chats ADD COLUMN auto_generate INTEGER")
 
 
 def _q(sql: str, args: tuple = ()) -> list[sqlite3.Row]:

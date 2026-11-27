@@ -378,7 +378,7 @@ export const useCreateChat = () => useChatMutation(() => api.post<Chat>("/chats"
 
 export const useUpdateChat = () =>
   useChatMutation(
-    ({ id, ...body }: { id: string; title?: string; pinned?: boolean; ask_first?: boolean }) => api.patch<Chat>(`/chats/${id}`, body),
+    ({ id, ...body }: { id: string; title?: string; pinned?: boolean; ask_first?: boolean; auto_generate?: boolean }) => api.patch<Chat>(`/chats/${id}`, body),
     (chat, _v, qc) => qc.invalidateQueries({ queryKey: keys.chat(chat.id) }),
   )
 

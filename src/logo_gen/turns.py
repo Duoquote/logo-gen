@@ -135,9 +135,10 @@ async def _run(turn: Turn, history: list[dict]) -> None:
         if feedback:  # "more of / less of" phrases the designer pulled from the user's message
             prompt_engine.learn_from_reply(turn.chat_id, turn.content)
         shown = prompt_engine.strip_prompt_block(turn.content) if prompts or feedback else turn.content
-        if prompts and not ask_first:
-            # Act first: render the directions now, as a server job linked to this reply, so the
-            # images show up under it even if nobody is watching.
+        if prompts and chats.generates_automatically(turn.chat_id):
+            # "Generate automatically": render the directions now, as a server job linked to this
+            # reply, so the images show up under it even if nobody is watching. It's off by
+            # default; then the reply ends with the directions and waits for Generate.
             from logo_gen.server import auto_round
 
             try:

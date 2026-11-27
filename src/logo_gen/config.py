@@ -51,6 +51,9 @@ class Settings(BaseModel):
     # The designer proposes and renders directions right away, then asks optional questions.
     # On: it asks questions first and waits for a click to render (the old behavior). Chats can override it.
     ask_before_generating: bool = False
+    # Render a reply's directions as soon as it arrives, instead of waiting for a click on Generate.
+    # Off by default, because it spends money without a click. Chats can override it.
+    generate_automatically: bool = False
 
     # Limits: the most images one model may make in a single request.
     max_images_cloud: int = Field(default=8, ge=1, le=100)

@@ -38,6 +38,7 @@ def get(chat_id: str, include_deleted: bool = False) -> dict | None:
     d = dict(rows[0])
     d["pinned"] = bool(d.get("pinned"))
     d["ask_first"] = None if d.get("ask_first") is None else bool(d["ask_first"])
+    d["auto_generate"] = None if d.get("auto_generate") is None else bool(d["auto_generate"])
     return d
 
 
@@ -49,6 +50,16 @@ def asks_first(chat_id: str) -> bool:
     if chat and chat.get("ask_first") is not None:
         return bool(chat["ask_first"])
     return get_settings().ask_before_generating
+
+
+def generates_automatically(chat_id: str) -> bool:
+    """Whether a reply's directions in this chat render right away, without a click on Generate."""
+    from logo_gen.config import get_settings
+
+    chat = get(chat_id, include_deleted=True)
+    if chat and chat.get("auto_generate") is not None:
+        return bool(chat["auto_generate"])
+    return get_settings().generate_automatically
 
 
 def auto_title(text: str) -> str:
@@ -128,9 +139,12 @@ def thumbnails(chat_ids: list[str]) -> dict[str, str]:
     return out
 
 
-def update(chat_id: str, title: str | None = None, pinned: bool | None = None, ask_first: bool | None = None) -> dict | None:
+def update(chat_id: str, title: str | None = None, pinned: bool | None = None, ask_first: bool | None = None,
+           auto_generate: bool | None = None) -> dict | None:
     if ask_first is not None:
         _x("UPDATE chats SET ask_first = ? WHERE id = ?", (int(ask_first), chat_id))
+    if auto_generate is not None:
+        _x("UPDATE chats SET auto_generate = ? WHERE id = ?", (int(auto_generate), chat_id))
     if title is not None:
         _x("UPDATE chats SET title = ? WHERE id = ?", (title.strip()[:200], chat_id))
     if pinned is not None:

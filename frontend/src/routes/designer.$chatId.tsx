@@ -329,11 +329,12 @@ function ChatTitle({ chat }: { chat: Chat }) {
   )
 }
 
-/** Per-chat designer options. "Ask questions before generating" defaults to the setting of the same name. */
+/** Per-chat designer options. Each switch defaults to the setting of the same name. */
 function ChatOptions({ chat }: { chat: Chat }) {
   const update = useUpdateChat()
   const settings = useSettings()
   const asks = chat.ask_first ?? settings.data?.settings.ask_before_generating ?? false
+  const auto = chat.auto_generate ?? settings.data?.settings.generate_automatically ?? false
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -346,7 +347,19 @@ function ChatOptions({ chat }: { chat: Chat }) {
           Ask questions before generating
         </DropdownMenuCheckboxItem>
         <p className="px-2 pb-1.5 text-[11px] text-muted-foreground">
-          Off: the designer proposes and renders right away, then asks. For this chat only; the default is in Settings.
+          Off: the designer proposes directions right away, then asks.
+        </p>
+        <DropdownMenuCheckboxItem
+          checked={auto}
+          onCheckedChange={(v) => update.mutate({ id: chat.id, auto_generate: v === true })}
+        >
+          Generate automatically
+        </DropdownMenuCheckboxItem>
+        <p className="px-2 pb-1.5 text-[11px] text-muted-foreground">
+          On: directions render as soon as a reply arrives. Off: you pick them and press Generate.
+        </p>
+        <p className="border-t px-2 pt-1.5 pb-1 text-[11px] text-muted-foreground">
+          These apply to this chat only. The defaults are in Settings.
         </p>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -1,4 +1,9 @@
-"""The designer proposes and renders right away, within caps and spend limits, unless asked to ask first."""
+"""The designer's two switches, which are independent.
+
+"Ask questions before generating" decides whether it proposes right away (the default) or asks first.
+"Generate automatically" decides whether the proposed directions render right away, as a server job
+within the caps and the key's spending limit, or wait for Generate (the default).
+"""
 
 import asyncio
 import json
@@ -78,9 +83,30 @@ async def say(c, text: str, chat_id: str | None = None) -> tuple[str, dict]:
     return chat_id, (await c.get(f"/api/chats/{chat_id}")).json()
 
 
-def test_a_brief_is_proposed_and_rendered_in_the_same_turn(designer):
+def auto(on: bool = True) -> None:
+    config.update_settings({"generate_automatically": on})
+
+
+def test_a_brief_gets_directions_right_away_and_waits_for_generate(designer):
     async def go():
         async with client() as c:
+            _, view = await say(c, "An icon for polytini, a small Python library for polygon geometry.")
+            reply = view["messages"][-1]
+            assert len(reply["prompts"]) == 2 and reply["prompts"][0]["brief"]["subject"]
+            assert "Want it to nod to Python?" in reply["content"] and "```json" not in reply["content"]
+            # Nothing renders by itself: no job, no spend line.
+            assert view["jobs"] == [] and designer["rendered"] == []
+            assert "Rendering" not in reply["content"]
+            assert "Act first" in designer["systems"][0]
+            assert "rendered as soon as you reply" not in designer["systems"][0]
+
+    asyncio.run(go())
+
+
+def test_generate_automatically_renders_in_the_same_turn(designer):
+    async def go():
+        async with client() as c:
+            auto()
             chat_id, view = await say(c, "An icon for polytini, a small Python library for polygon geometry.")
             reply = view["messages"][-1]
             assert len(reply["prompts"]) == 2
@@ -89,7 +115,6 @@ def test_a_brief_is_proposed_and_rendered_in_the_same_turn(designer):
             # A real server job, linked to the reply, so the images land under it.
             assert [j["message_id"] for j in view["jobs"]] == [reply["id"]]
             assert designer["rendered"][0][1:] == (chat_id, {"recraft/recraft-v4.1-flash": 2})
-            assert "Act first" in designer["systems"][0]
 
     asyncio.run(go())
 
@@ -97,9 +122,30 @@ def test_a_brief_is_proposed_and_rendered_in_the_same_turn(designer):
 def test_an_empty_brief_only_gets_questions(designer):
     async def go():
         async with client() as c:
+            auto()
             _, view = await say(c, "make me a logo")
             assert view["messages"][-1]["content"] == QUESTIONS
             assert view["jobs"] == [] and designer["rendered"] == []
+
+    asyncio.run(go())
+
+
+def test_each_chat_can_override_generate_automatically(designer):
+    async def go():
+        async with client() as c:
+            chat_id = (await c.post("/api/chats", json={})).json()["id"]
+            assert (await c.get(f"/api/chats/{chat_id}")).json()["auto_generate"] is None  # follows the setting
+            patched = (await c.patch(f"/api/chats/{chat_id}", json={"auto_generate": True})).json()
+            assert patched["auto_generate"] is True and patched["ask_first"] is None
+            _, view = await say(c, "An icon for polytini", chat_id)
+            assert len(view["jobs"]) == 1
+
+            # And the other way: on in Settings, off in this chat.
+            auto()
+            other = (await c.post("/api/chats", json={})).json()["id"]
+            await c.patch(f"/api/chats/{other}", json={"auto_generate": False})
+            _, view = await say(c, "An icon for polytini", other)
+            assert view["jobs"] == []
 
     asyncio.run(go())
 
@@ -114,16 +160,55 @@ def test_ask_first_setting_and_per_chat_override(designer):
 
             # This chat says act first, whatever the setting says.
             patched = (await c.patch(f"/api/chats/{chat_id}", json={"ask_first": False})).json()
-            assert patched["ask_first"] is False
+            assert patched["ask_first"] is False and patched["auto_generate"] is None
             _, view = await say(c, "go", chat_id)
-            assert len(view["jobs"]) == 1 and "Act first" in designer["systems"][-1]
+            assert "Act first" in designer["systems"][-1]
+            assert view["jobs"] == []  # proposing first doesn't mean rendering by itself
 
     asyncio.run(go())
+
+
+def test_the_switches_are_independent(designer):
+    """Asking first and rendering automatically combine: the questions come first, then the
+    proposal that follows renders by itself."""
+
+    async def go():
+        async with client() as c:
+            config.update_settings({"ask_before_generating": True, "generate_automatically": True})
+            chat_id, view = await say(c, "An icon for polytini")
+            assert "Before proposing directions you need" in designer["systems"][-1]
+            assert len(view["jobs"]) == 1  # the fake designer proposes anyway
+
+            # Turning one off in a chat leaves the other alone.
+            await c.patch(f"/api/chats/{chat_id}", json={"auto_generate": False})
+            _, view = await say(c, "go", chat_id)
+            assert len(view["jobs"]) == 1 and "Before proposing directions you need" in designer["systems"][-1]
+
+    asyncio.run(go())
+
+
+def test_chats_from_before_the_switch_start_with_it_off(home):
+    import sqlite3
+
+    from logo_gen import chats, library, paths
+
+    c = sqlite3.connect(paths.DB_FILE)
+    c.executescript(library.SCHEMA)
+    cols = {r[1] for r in c.execute("PRAGMA table_info(chats)")}
+    if "auto_generate" in cols:
+        c.execute("ALTER TABLE chats DROP COLUMN auto_generate")
+    c.execute("INSERT INTO chats (id, title, created_at, updated_at) VALUES ('old', '', 0, 0)")
+    c.commit()
+    c.close()
+    library._conn = None
+    assert "auto_generate" in {r[1] for r in library.conn().execute("PRAGMA table_info(chats)")}
+    assert chats.get("old")["auto_generate"] is None and chats.generates_automatically("old") is False
 
 
 def test_the_round_respects_caps_and_counts(designer):
     async def go():
         async with client() as c:
+            auto()
             config.update_settings({"images_per_prompt": 3, "model_caps": {"recraft/recraft-v4.1-flash": 4}})
             _, view = await say(c, "An icon for polytini")
             # 2 directions x 3 would be 6; the cap of 4 leaves 2 per direction.
@@ -137,6 +222,7 @@ def test_the_round_respects_caps_and_counts(designer):
 def test_no_cloud_round_past_the_keys_spending_limit(designer):
     async def go():
         async with client() as c:
+            auto()
             designer["key"]["limit_remaining"] = 0.005
             config.update_settings({"image_models": ["recraft/recraft-v4.1-flash", "local/zimage-turbo"]})
             _, view = await say(c, "An icon for polytini")
