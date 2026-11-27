@@ -40,13 +40,27 @@ Options: `--port 8000`, `--host 0.0.0.0` (it only listens on localhost by defaul
 ## What's in it
 
 - Generate: type a brief, pick image models, press Generate. The chat model writes 4 directions (different ideas, not the same idea in four colors) and each one is rendered. Images show up as they finish, with a progress bar and a cancel button.
-- Designer: a chat that asks a couple of questions or goes straight to directions. You tick the directions you like and render them next to the chat. Reference images go to the chat model and to image models that accept them.
+- Designer: a chat that asks a couple of questions or goes straight to directions. You tick the directions you like and the images show up right under that reply. Reference images go to the chat model and to image models that accept them. More on it below.
 - Gallery: everything you made, with search and favorites. Each image can be downloaded (PNG, or SVG from vector models), varied, upscaled, or have its background removed. Upscales and background removals don't replace anything. They stay under the original as candidates, so you can try a few methods, compare them side by side or flip between them, and mark the one you want as the version to use. The gallery and the download button then use that version.
 - Models: the live OpenRouter catalog split into image models and chat models, with prices, context length, modalities and filters. Also the local models, with install buttons.
 
 ![Designer](screenshots/designer.png)
 
 ![An image next to a background-removed candidate, with its other versions and the tools](screenshots/image.png)
+
+## The designer
+
+The designer is a chat, like the usual chat apps, with image generation built in. A few things worth knowing:
+
+- The reply runs on the server, not in your browser tab. You can leave the page, reload, or open the chat in another browser while it's answering, and it picks up where the reply is. Before this, leaving mid-answer lost the reply.
+- Each reply's images show up under it, with progress while they render. Rate them with thumbs up or down, or use "Use this direction" to send the image back to the designer with a request to refine it. Variations, a quick 2x upscale, background removal and download are in the same menu.
+- You can edit anything you said and send it again. That makes a new branch instead of overwriting, and `< 2 / 2 >` under the message switches between branches. Regenerate works the same way for the last reply. "Delete from here" removes a message and everything after it, with undo.
+- The chat list on the left is sorted by last activity, with a thumbnail of the logo you picked (or the newest one), what the chat cost, search, pin and rename (F2). On a phone it's a sheet. `/designer` reopens the chat you had open last, and that's remembered on the server, so it works from any browser.
+- The model's thinking is there but collapsed. Click "Thought it through" to read it.
+
+<img src="screenshots/designer-phone.png" width="260" alt="The designer on a phone" align="right">
+
+Your reactions (likes, dislikes and picks) are stored with the prompt and model that made each image. That's for the prompt side of the app to learn what you like; the event format is in `chats.py` and `GET /api/feedback`.
 
 ## OpenRouter
 
@@ -67,6 +81,27 @@ One thing that surprised me: if you've added your own provider key to OpenRouter
 The model list comes from OpenRouter's models API with your key and is cached for 10 minutes. Image models use OpenRouter's Images API, and we only send the options a model supports (seed, count, aspect ratio, transparent background, reference images).
 
 ![Models](screenshots/models.png)
+
+### Which image model is good
+
+Every model picker (Generate, the designer and the Models page) can sort by:
+
+- Best quality: the score on [LMArena's text-to-image leaderboard](https://lmarena.ai/leaderboard/text-to-image). We use its commercial design category, because that's the closest to logos, and the overall score for models that don't have it.
+- Best value: quality for the money. The Pareto frontier comes first (models that nothing else beats on both score and price), then the rest. Within each, the score minus 50 points for every doubling of the price per 1024px image above $0.01. So a model that costs twice as much has to score 50 points higher to rank the same. On an Elo scale that's about a 57% chance of winning a head-to-head vote. Free counts as $0.001.
+- Cheapest: by the estimated price of one 1024px image. Token-priced models are estimates, marked with "≈".
+- Popular on OpenRouter: by image tokens generated over the last 30 days. That's how much a model is used, not how good it is.
+- Local / free: installed local models and free OpenRouter models only.
+
+The pickers open with a short "Top picks" list: the best scoring model, the best value, and the ones you used recently. Each model has small badges for its rank, price per image, "best value" if it's on the frontier, "local", or "unranked". The sort you pick is saved.
+
+Where the numbers come from:
+
+- Quality: LMArena publishes its leaderboard as an open dataset on Hugging Face, [`lmarena-ai/leaderboard-dataset`](https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset), under CC BY 4.0. We read it through Hugging Face's public API, with no key, once a day. A dated copy ships in the repo (`src/logo_gen/rankings_snapshot.json`), so it works offline. The current one was published 2026-11-20.
+- Popularity: OpenRouter's [rankings API](https://openrouter.ai/docs/api/api-reference/datasets/get-rankings-daily), also CC BY 4.0, with the key you already have.
+
+The UI shows the source, the date and a link wherever a score appears. Leaderboard names don't match OpenRouter ids, so `rankings.py` has an explicit alias table. A model that isn't in it shows as "unranked" instead of being matched by guesswork. Right now 34 of the 69 OpenRouter image models are ranked. Of the local models, Z-Image Turbo and FLUX.2 klein are; FLUX.1 schnell and SD-Turbo aren't on the leaderboard.
+
+I looked at Artificial Analysis' text-to-image arena too. It has an API, but it needs an account and a key, so I went with LMArena's open dataset.
 
 ## Local models
 
