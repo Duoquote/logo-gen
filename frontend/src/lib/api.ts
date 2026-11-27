@@ -285,20 +285,62 @@ export interface ChatSummary {
   created_at: number
   updated_at: number
   message_count: number
+  pinned: boolean
+  streaming: boolean
+  spend: number
+  thumbnail: string | null
+}
+
+export type MessageStatus = "streaming" | "done" | "stopped" | "error"
+
+export interface ChatOutput extends ImageItem {
+  rating: "like" | "dislike" | null
 }
 
 export interface ChatMessage {
   id: number
+  chat_id: string
+  parent_id: number | null
   role: "user" | "assistant"
   content: string
+  reasoning: string
   images: string[]
   prompts: Prompt[]
+  status: MessageStatus
+  error: string
+  model: string
   created_at: number
+  finished_at: number | null
+  siblings: number[]
+  cost: { credits: number; byok: number } | null
+  outputs: ChatOutput[]
 }
 
-export interface Chat extends ChatSummary {
+export interface Chat {
+  id: string
+  title: string
+  created_at: number
+  updated_at: number
+  pinned: boolean
+  active_leaf: number | null
   messages: ChatMessage[]
   spend: Spend
+  jobs: (Job & { message_id: number | null })[]
+  running: number | null
+}
+
+export interface FeedbackEvent {
+  id: number
+  created_at: number
+  kind: "like" | "dislike" | "unrate" | "pick"
+  image_id: string | null
+  chat_id: string | null
+  message_id: number | null
+  model: string
+  prompt: string
+  concept: string
+  style: string
+  data: Record<string, unknown>
 }
 
 export interface ToolOptions {
@@ -320,49 +362,36 @@ export async function uploadImages(files: File[]): Promise<Upload[]> {
   return request<Upload[]>("POST", "/uploads", form)
 }
 
-// ── Chat streaming (SSE over POST) ────────────────────────────────
+// ── Following a designer reply (SSE with resume) ────────────────────
 
-export type ChatEvent =
-  | { type: "start"; model: string }
-  | { type: "token"; content: string }
-  | { type: "reasoning"; content: string }
-  | { type: "usage"; credits: number; byok: number }
-  | { type: "done"; message_id: number; content: string; prompts: Prompt[] }
-  | { type: "error"; message: string }
+export type ReplyEvent =
+  | { type: "snapshot"; id: number; content: string; reasoning: string; status: MessageStatus; error: string }
+  | { type: "start"; id: number; model: string }
+  | { type: "token"; id: number; content: string }
+  | { type: "reasoning"; id: number; content: string }
+  | { type: "usage"; id: number; credits: number; byok: number }
+  | { type: "done"; id: number; status: MessageStatus; content: string; prompts?: Prompt[] }
+  | { type: "error"; id?: number; status: "error"; message: string }
+  | { type: "end"; status: MessageStatus }
+  | { type: "ping" }
 
-export async function streamChat(
-  chatId: string,
-  body: { content: string; images: string[] },
-  onEvent: (e: ChatEvent) => void,
-  signal?: AbortSignal,
-): Promise<void> {
-  const res = await fetch(`/api/chats/${chatId}/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal,
-  })
-  if (!res.ok || !res.body) {
-    const data = await res.json().catch(() => null)
-    throw new ApiError(data?.error ?? `Chat failed (${res.status})`, res.status)
-  }
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ""
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const parts = buffer.split("\n\n")
-    buffer = parts.pop() ?? ""
-    for (const part of parts) {
-      const line = part.split("\n").find((l) => l.startsWith("data: "))
-      if (!line) continue
-      try {
-        onEvent(JSON.parse(line.slice(6)) as ChatEvent)
-      } catch {
-        // ignore a malformed event
-      }
+/**
+ * Follow a reply that runs on the server. EventSource reconnects by itself and
+ * sends Last-Event-ID, so a dropped connection resumes where it stopped. The
+ * server ends the stream with an "end" event, and we close then (otherwise
+ * EventSource would reconnect forever).
+ */
+export function followReply(chatId: string, messageId: number, onEvent: (e: ReplyEvent) => void): () => void {
+  const es = new EventSource(`/api/chats/${chatId}/messages/${messageId}/stream`)
+  es.onmessage = (m) => {
+    let ev: ReplyEvent
+    try {
+      ev = JSON.parse(m.data) as ReplyEvent
+    } catch {
+      return
     }
+    onEvent(ev)
+    if (ev.type === "end") es.close()
   }
+  return () => es.close()
 }

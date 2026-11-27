@@ -81,6 +81,41 @@ CREATE TABLE IF NOT EXISTS costs (
 CREATE INDEX IF NOT EXISTS costs_chat ON costs(chat_id);
 CREATE INDEX IF NOT EXISTS costs_job ON costs(job_id);
 
+-- Which chat message a generation job belongs to, so its images show under that message.
+CREATE TABLE IF NOT EXISTS chat_jobs (
+    job_id TEXT PRIMARY KEY,
+    chat_id TEXT NOT NULL,
+    message_id INTEGER,
+    kind TEXT DEFAULT '',
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS chat_jobs_message ON chat_jobs(message_id);
+
+-- Reactions to images in the designer (like, dislike, unrate, pick). Append-only;
+-- the latest like/dislike/unrate per image is its current rating. The prompt
+-- layer reads these to learn what the user likes.
+CREATE TABLE IF NOT EXISTS feedback_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at REAL NOT NULL,
+    kind TEXT NOT NULL,
+    image_id TEXT,
+    chat_id TEXT,
+    message_id INTEGER,
+    model TEXT DEFAULT '',
+    prompt TEXT DEFAULT '',
+    concept TEXT DEFAULT '',
+    style TEXT DEFAULT '',
+    data TEXT DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS feedback_image ON feedback_events(image_id, id);
+CREATE INDEX IF NOT EXISTS feedback_chat ON feedback_events(chat_id, id);
+
+-- Small key/value state, such as the designer chat the user had open last.
+CREATE TABLE IF NOT EXISTS app_state (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
+
 CREATE TABLE IF NOT EXISTS calibrations (
     model_id TEXT PRIMARY KEY,
     created_at REAL NOT NULL,
@@ -104,8 +139,16 @@ def conn() -> sqlite3.Connection:
         return _conn
 
 
+def _columns(c: sqlite3.Connection, table: str) -> set[str]:
+    return {r[1] for r in c.execute(f"PRAGMA table_info({table})")}
+
+
 def _migrate(c: sqlite3.Connection) -> None:
-    cols = {r[1] for r in c.execute("PRAGMA table_info(images)")}
+    _migrate_chats(c)
+    if "message_id" not in _columns(c, "costs"):
+        c.execute("ALTER TABLE costs ADD COLUMN message_id INTEGER")
+        c.execute("CREATE INDEX IF NOT EXISTS costs_message ON costs(message_id)")
+    cols = _columns(c, "images")
     if "primary_id" not in cols:
         # The version of an image the user picked to keep (an upscale or a cleaned copy).
         c.execute("ALTER TABLE images ADD COLUMN primary_id TEXT")
@@ -116,6 +159,33 @@ def _migrate(c: sqlite3.Connection) -> None:
                SELECT created_at, 'image', model, chat_id, job_id, cost, 1, CASE WHEN model LIKE 'local/%' THEN 1 ELSE 0 END
                FROM images WHERE kind = 'generated'"""
         )
+
+
+def _migrate_chats(c: sqlite3.Connection) -> None:
+    """Chats became a tree of messages (edits and regenerations are branches) with server-side turn state."""
+    mcols = _columns(c, "messages")
+    if "parent_id" not in mcols:
+        for col in (
+            "parent_id INTEGER",
+            "status TEXT DEFAULT 'done'",  # streaming | done | stopped | error
+            "reasoning TEXT DEFAULT ''",
+            "error TEXT DEFAULT ''",
+            "model TEXT DEFAULT ''",
+            "finished_at REAL",
+            "deleted_at REAL",
+        ):
+            c.execute(f"ALTER TABLE messages ADD COLUMN {col}")
+        # Old chats were linear: each message follows the one before it.
+        c.execute(
+            """UPDATE messages SET parent_id = (
+                   SELECT MAX(p.id) FROM messages p WHERE p.chat_id = messages.chat_id AND p.id < messages.id)"""
+        )
+        c.execute("CREATE INDEX IF NOT EXISTS messages_parent ON messages(chat_id, parent_id)")
+    ccols = _columns(c, "chats")
+    if "active_leaf" not in ccols:
+        for col in ("pinned INTEGER DEFAULT 0", "deleted_at REAL", "active_leaf INTEGER", "last_opened_at REAL"):
+            c.execute(f"ALTER TABLE chats ADD COLUMN {col}")
+        c.execute("UPDATE chats SET active_leaf = (SELECT MAX(id) FROM messages m WHERE m.chat_id = chats.id)")
 
 
 def _q(sql: str, args: tuple = ()) -> list[sqlite3.Row]:
@@ -265,12 +335,12 @@ def stats() -> dict:
 
 def add_cost(kind: str, *, credits: float = 0.0, byok: float = 0.0, model: str = "", chat_id: str | None = None,
              job_id: str | None = None, generation_id: str | None = None, images: int = 0, local: bool = False,
-             prompt_tokens: int = 0, completion_tokens: int = 0) -> None:
+             prompt_tokens: int = 0, completion_tokens: int = 0, message_id: int | None = None) -> None:
     _x(
         """INSERT INTO costs (created_at, kind, model, chat_id, job_id, generation_id, credits, byok, images, local,
-                              prompt_tokens, completion_tokens) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                              prompt_tokens, completion_tokens, message_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (time.time(), kind, model, chat_id, job_id, generation_id, float(credits or 0), float(byok or 0), images,
-         int(local), int(prompt_tokens or 0), int(completion_tokens or 0)),
+         int(local), int(prompt_tokens or 0), int(completion_tokens or 0), message_id),
     )
 
 
@@ -343,65 +413,3 @@ def _guess_model(name: str) -> str:
     if "_s" in stem:
         stem = stem.split("_s")[0]
     return stem.replace("_", "/", 1) if "_" in stem else stem
-
-
-# ── Chats ────────────────────────────────────────────────────────────
-
-
-def create_chat(title: str = "") -> dict:
-    now = time.time()
-    chat_id = uuid.uuid4().hex[:16]
-    _x("INSERT INTO chats (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)", (chat_id, title, now, now))
-    return get_chat(chat_id)  # type: ignore[return-value]
-
-
-def list_chats() -> list[dict]:
-    rows = _q(
-        """SELECT c.*, COUNT(m.id) AS message_count FROM chats c
-           LEFT JOIN messages m ON m.chat_id = c.id
-           GROUP BY c.id ORDER BY c.updated_at DESC"""
-    )
-    return [dict(r) for r in rows]
-
-
-def get_chat(chat_id: str) -> dict | None:
-    rows = _q("SELECT * FROM chats WHERE id = ?", (chat_id,))
-    if not rows:
-        return None
-    chat = dict(rows[0])
-    chat["messages"] = [
-        {
-            "id": m["id"],
-            "role": m["role"],
-            "content": m["content"],
-            "images": json.loads(m["images"] or "[]"),
-            "prompts": json.loads(m["prompts"] or "[]"),
-            "created_at": m["created_at"],
-        }
-        for m in _q("SELECT * FROM messages WHERE chat_id = ? ORDER BY id", (chat_id,))
-    ]
-    return chat
-
-
-def add_message(chat_id: str, role: str, content: str, images: list[str] | None = None, prompts: list[dict] | None = None) -> int:
-    now = time.time()
-    cur = _x(
-        "INSERT INTO messages (chat_id, role, content, images, prompts, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-        (chat_id, role, content, json.dumps(images or []), json.dumps(prompts or []), now),
-    )
-    _x("UPDATE chats SET updated_at = ? WHERE id = ?", (now, chat_id))
-    if role == "user":
-        _x(
-            "UPDATE chats SET title = ? WHERE id = ? AND (title IS NULL OR title = '')",
-            (" ".join(content.split())[:60], chat_id),
-        )
-    return int(cur.lastrowid or 0)
-
-
-def rename_chat(chat_id: str, title: str) -> None:
-    _x("UPDATE chats SET title = ? WHERE id = ?", (title, chat_id))
-
-
-def delete_chat(chat_id: str) -> None:
-    _x("DELETE FROM messages WHERE chat_id = ?", (chat_id,))
-    _x("DELETE FROM chats WHERE id = ?", (chat_id,))
