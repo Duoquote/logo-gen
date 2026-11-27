@@ -27,10 +27,12 @@ export function ImageModelPicker({
   value,
   onChange,
   className,
+  compact = false,
 }: {
   value: string[]
   onChange: (v: string[]) => void
   className?: string
+  compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const settings = useSettings()
@@ -52,7 +54,7 @@ export function ImageModelPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className={cn("h-auto min-h-8 justify-between py-1", className)}>
+        <Button variant="outline" size={compact ? "sm" : "default"} className={cn("h-auto min-h-8 justify-between py-1", className)}>
           <span className="flex flex-wrap gap-1">
             {value.length === 0 && <span className="text-muted-foreground">Choose image models</span>}
             {value.map((v) => (
@@ -65,7 +67,7 @@ export function ImageModelPicker({
           <ChevronsUpDownIcon className="opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[440px] p-0" align="start">
+      <PopoverContent className="w-[min(440px,calc(100vw-1rem))] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search image models" />
           <CommandList className="max-h-80">
