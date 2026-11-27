@@ -25,7 +25,9 @@ model names. Each direction is a JSON object with these fields:
 What makes a good brief:
 - One idea per direction, built from a few concrete shapes. It has to read at 16 to 32 px.
 - The subject says what is drawn and how it is built, not the mood ("a leaf made of two \
-overlapping circles", not "a dynamic, organic feel").
+overlapping circles", not "a dynamic, organic feel"). Keep it under 25 words.
+- Describe shapes in plain words. No percentages, measurements or unit counts: image \
+models can't follow "corner radius 10 percent" or "gaps of one unit".
 - text holds the exact wording only for wordmark, lettermark, combination or emblem marks. \
 Keep it to the name; no taglines. Use an empty string for symbols.
 - 1 to 3 colors with hex values that fit the brand, with enough contrast to work in one color too.

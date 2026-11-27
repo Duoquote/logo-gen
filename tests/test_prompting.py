@@ -248,7 +248,7 @@ def test_recraft_gets_palette_and_background_as_controls():
     r = render.render(BRIEFS["coffee-wordmark"], "recraft/recraft-v4.1-flash", {"params": {}})
     controls = r.params["provider"]["options"]["recraft"]["controls"]
     assert controls["colors"] == [{"rgb": [75, 46, 31]}]
-    assert controls["background_color"] == {"rgb": [246, 239, 228]}
+    assert controls["background_color"] == {"rgb": [255, 255, 255]}  # pale cream counts as white
     assert "Flat colors only" in r.prompt
 
 
@@ -337,11 +337,12 @@ def test_feedback_builds_a_profile_and_feeds_the_designer(settings, tmp_path, mo
     assert p["models"][0]["model"] == "recraft/recraft-v4.1-flash"
     assert p["counts"]["pick"] == 1 and p["counts"]["dislike"] == 1
 
-    preferences.add_notes("c1", more=["thicker strokes"], less=["gradients"])
+    preferences.add_notes("c1", more=["thicker strokes"], less=["gradients", "the P lettermark"])
     ctx = preferences.designer_context("c1")
-    assert "thicker strokes" in ctx and "gradients" in ctx and "3d render" in ctx
+    assert "thicker strokes" in ctx and "gradients" in ctx and "3d render" in ctx and "P lettermark" in ctx
     assert "this user" in prompt_engine.designer_system("c1")
-    assert "gradients" in preferences.render_hints("c1")
+    # Only visual attributes reach image prompts; naming "the P lettermark" there would draw it.
+    assert preferences.render_hints("c1") == ["gradients", "3d render"]
 
     # Votes replace each other, and clear removes them.
     preferences.apply_event(preferences.FeedbackEvent("clear", disliked["id"]))

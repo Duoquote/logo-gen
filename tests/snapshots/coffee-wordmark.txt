@@ -4,34 +4,34 @@ Subject: the name in a warm, slightly rounded serif; the counter of the o is a c
 Style: flat vector; one color; soft serifs, medium weight; flat 2D. Clean vector-like shapes, a strong silhouette, balanced negative space.
 Colors: espresso brown #4B2E1F only.
 Composition: one line of text, horizontally centered; a single mark, centered, generous even padding, nothing else in frame.
-Background: solid cream #F6EFE4, filling the whole canvas.
+Background: plain white, filling the whole canvas.
 Text: the text "Ember & Oak" as the whole logo, spelled exactly, in clean lettering. No extra text.
 Constraints: No 3d, no steam swirls.
 It must read clearly at 32 px, so keep the shapes bold and the details few.
 PARAMS: {"output_format": "png", "quality": "medium"}
 
 ## google/gemini-2.5-flash-image [gemini-image, natural]
-A flat vector wordmark logo of the name in a warm, slightly rounded serif; the counter of the o is a coffee bean. One color, soft serifs, medium weight. All shapes in espresso brown #4B2E1F. The text "Ember & Oak" as the whole logo, spelled exactly, in clean lettering. Flat 2D. One line of text, horizontally centered. A single mark with generous even padding, on a solid cream #F6EFE4 background, nothing else in frame. Bold, simple shapes that read clearly at small sizes.
+A flat vector wordmark logo of the name in a warm, slightly rounded serif; the counter of the o is a coffee bean. One color, soft serifs, medium weight. All shapes in espresso brown #4B2E1F. The text "Ember & Oak" as the whole logo, spelled exactly, in clean lettering. Flat 2D. One line of text, horizontally centered. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes.
 
 ## recraft/recraft-v4.1-flash [recraft, recraft]
-Flat vector wordmark logo of the name in a warm, slightly rounded serif; the counter of the o is a coffee bean. All shapes in espresso brown #4B2E1F. The text "Ember & Oak" as the whole logo, spelled exactly, in clean lettering. Flat colors only, one unified silhouette, no gradients, no shadows, no texture, no 3d, no steam swirls. A single mark with generous even padding, on a solid cream #F6EFE4 background, nothing else in frame.
-PARAMS: {"provider": {"options": {"recraft": {"controls": {"background_color": {"rgb": [246, 239, 228]}, "colors": [{"rgb": [75, 46, 31]}]}}}}}
+Flat vector wordmark logo of the name in a warm, slightly rounded serif; the counter of the o is a coffee bean. All shapes in espresso brown #4B2E1F. The text "Ember & Oak" as the whole logo, spelled exactly, in clean lettering. Flat colors only, one unified silhouette, no gradients, no shadows, no texture, no 3d, no steam swirls. A single mark with generous even padding, on a plain white background, nothing else in frame.
+PARAMS: {"provider": {"options": {"recraft": {"controls": {"background_color": {"rgb": [255, 255, 255]}, "colors": [{"rgb": [75, 46, 31]}]}}}}}
 
 ## black-forest-labs/flux.2-klein-4b [flux-2-klein, natural]
-A flat vector wordmark logo of the name in a warm, slightly rounded serif; the counter of the o is a coffee bean. One color, soft serifs, medium weight. All shapes in espresso brown #4B2E1F. The text "Ember & Oak" as the whole logo, spelled exactly, in clean lettering. Flat 2D. One line of text, horizontally centered. A single mark with generous even padding, on a solid cream #F6EFE4 background, nothing else in frame. Bold, simple shapes that read clearly at small sizes.
+A flat vector wordmark logo of the name in a warm, slightly rounded serif; the counter of the o is a coffee bean. One color, soft serifs, medium weight. All shapes in espresso brown #4B2E1F. The text "Ember & Oak" as the whole logo, spelled exactly, in clean lettering. Flat 2D. One line of text, horizontally centered. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes.
 PARAMS: {"output_format": "png"}
 NOTE: FLUX.2 klein (cloud) often misspells lettering; check "Ember & Oak" closely.
 
 ## black-forest-labs/flux-3-image-klein [flux-3, natural]
-A flat-color graphic wordmark logo of the name in a warm, slightly rounded serif; the counter of the o is a coffee bean. One color, soft serifs, medium weight. All shapes in espresso brown #4B2E1F. The text "Ember & Oak" as the whole logo, spelled exactly, in clean lettering. Flat 2D. One line of text, horizontally centered. A single mark with generous even padding, on a solid cream #F6EFE4 background, nothing else in frame. Bold, simple shapes that read clearly at small sizes.
+A flat-color graphic wordmark logo of the name in a warm, slightly rounded serif; the counter of the o is a coffee bean. One color, soft serifs, medium weight. All shapes in espresso brown #4B2E1F. The text "Ember & Oak" as the whole logo, spelled exactly, in clean lettering. Flat 2D. One line of text, horizontally centered. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes.
 PARAMS: {"provider": {"options": {"black-forest-labs": {"grounding": false}}}}
 
 ## bytedance-seed/seedream-5-5 [seedream, natural]
-A flat vector wordmark logo of the name in a warm, slightly rounded serif; the counter of the o is a coffee bean. One color, soft serifs, medium weight. All shapes in espresso brown #4B2E1F. The text "Ember & Oak" as the whole logo, spelled exactly, in clean lettering. No other text. Flat 2D. One line of text, horizontally centered. A single mark with generous even padding, on a solid cream #F6EFE4 background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No 3d, no steam swirls.
+A flat vector wordmark logo of the name in a warm, slightly rounded serif; the counter of the o is a coffee bean. One color, soft serifs, medium weight. All shapes in espresso brown #4B2E1F. The text "Ember & Oak" as the whole logo, spelled exactly, in clean lettering. No other text. Flat 2D. One line of text, horizontally centered. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No 3d, no steam swirls.
 PARAMS: {"output_format": "png", "resolution": "1K"}
 
 ## local/zimage-turbo [z-image-turbo, natural]
-A flat vector wordmark logo of the name in a warm, slightly rounded serif; the counter of the o is a coffee bean. One color, soft serifs, medium weight. All shapes in espresso brown #4B2E1F. The text "Ember & Oak" as the whole logo, spelled exactly, in clean lettering. Flat 2D. One line of text, horizontally centered. A single mark with generous even padding, on a solid cream #F6EFE4 background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No 3d, no steam swirls.
+A flat vector wordmark logo of the name in a warm, slightly rounded serif; the counter of the o is a coffee bean. One color, soft serifs, medium weight. All shapes in espresso brown #4B2E1F. The text "Ember & Oak" as the whole logo, spelled exactly, in clean lettering. Flat 2D. One line of text, horizontally centered. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No 3d, no steam swirls.
 PARAMS: {"guidance": 0.0, "steps": 9}
 
 ## local/sd-turbo [sd-turbo, keywords]

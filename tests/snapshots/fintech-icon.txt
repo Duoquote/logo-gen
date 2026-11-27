@@ -16,7 +16,7 @@ NOTE: This model has no transparent output, so it gets a plain background. Remov
 
 ## recraft/recraft-v4.1-flash [recraft, recraft]
 Flat vector app icon of three stacked rounded bars forming an upward arrow. Bold geometric, rounded corners. Main shapes in electric indigo #4F46E5, accents in white #FFFFFF. Flat colors only, one unified silhouette, no gradients, no shadows, no texture, no fine detail, no gloss. Centered inside a rounded square tile. A single mark with generous even padding, on a plain white background, nothing else in frame. No text.
-PARAMS: {"provider": {"options": {"recraft": {"controls": {"colors": [{"rgb": [79, 70, 229]}, {"rgb": [255, 255, 255]}]}}}}}
+PARAMS: {"provider": {"options": {"recraft": {"controls": {"background_color": {"rgb": [255, 255, 255]}, "colors": [{"rgb": [79, 70, 229]}, {"rgb": [255, 255, 255]}]}}}}}
 NOTE: This model has no transparent output, so it gets a plain background. Remove it afterwards.
 
 ## black-forest-labs/flux.2-klein-4b [flux-2-klein, natural]

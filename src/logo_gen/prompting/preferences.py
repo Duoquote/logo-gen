@@ -176,7 +176,7 @@ def clear(scope: str) -> None:
 # ── Reading ──────────────────────────────────────────────────────────
 
 
-def _rank(scores: dict[str, float], positive: bool, n: int = 5) -> list[str]:
+def _rank(scores: dict[str, float], positive: bool, n: int = 4) -> list[str]:
     items = [(k, v) for k, v in scores.items() if (v > 0 if positive else v < 0)]
     items.sort(key=lambda kv: -abs(kv[1]))
     return [k for k, _ in items[:n]]
@@ -264,10 +264,17 @@ def designer_context(chat_id: str | None) -> str:
 
 
 def render_hints(chat_id: str | None) -> list[str]:
-    """Extra things to avoid in rendered prompts: the user's own "less of" phrases and disliked styles."""
+    """Extra things to keep out of rendered prompts, from this chat's "less of" phrases and disliked styles.
+
+    Only visual attributes the renderers know how to phrase (gradients, shadows,
+    thin lines, texture, ...). Concept-level feedback ("not the P lettermark")
+    goes to the designer instead: naming it in an image prompt tends to draw it.
+    """
     if not chat_id:
         return []
+    from logo_gen.prompting.render import POSITIVE
+
     p = profile(chat_scope(chat_id))
-    out = [x for x in p["less"] if len(x.split()) <= 4]
-    out += [x for x in p["disliked"].get("style", []) if x not in p["liked"].get("style", [])][:2]
+    candidates = [*p["less"], *[x for x in p["disliked"].get("style", []) if x not in p["liked"].get("style", [])]]
+    out = [x for x in candidates if x.lower().removeprefix("no ").strip() in POSITIVE]
     return list(dict.fromkeys(out))[:4]

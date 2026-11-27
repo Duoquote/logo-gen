@@ -25,7 +25,7 @@ FIELDS: dict[str, str] = {
     "shape_language": "geometry, corners, stroke weight (\"rounded geometric, 2 px monoline\")",
     "style": "rendering style in 2 to 5 words (\"flat vector, two colors\")",
     "palette": "1 to 3 colors, each with a name and a hex value",
-    "background": "\"white\", \"transparent\", or a solid color with hex",
+    "background": "the canvas behind the mark: \"white\" (default), \"transparent\", or a solid color with hex for an app icon tile",
     "text": "the exact wording to render, or an empty string for no text",
     "avoid": "up to 4 short things to keep out (\"gradients\", \"thin hairlines\")",
 }
@@ -73,7 +73,8 @@ class Brief:
 
     def summary(self) -> str:
         """One readable line for the chat and the gallery. Not a model prompt."""
-        parts = [f"{self.mark_type.capitalize()} {self.format}: {self.subject}".strip().rstrip(".") + "."]
+        subject = self.subject[:1].lower() + self.subject[1:] if self.subject[:2] in ("A ", "An", "Th") else self.subject
+        parts = [f"{self.mark_type.capitalize()} {self.format}: {subject}".strip().rstrip(".") + "."]
         look = ", ".join(x for x in (self.shape_language, self.style) if x)
         if look:
             parts.append(look[0].upper() + look[1:] + ".")

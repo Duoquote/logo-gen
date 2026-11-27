@@ -187,7 +187,12 @@ def _exclusions(b: Brief, p: ModelProfile, extra: list[str]) -> tuple[list[str],
     items = [i.lower().removeprefix("no ").removeprefix("any ") for i in items]
     if b.has_text:
         items = [i for i in items if i not in ("text", "letters", "letterforms")]
-    positive = list(dict.fromkeys(POSITIVE[i] for i in items if i in POSITIVE))
+    positive: list[str] = []
+    for i in items:  # at most two, and not two ways of saying "flat"
+        pos = POSITIVE.get(i)
+        if pos and pos not in positive and not (pos.startswith(("flat", "matte")) and any(x.startswith("flat") for x in positive)):
+            positive.append(pos)
+    positive = positive[:2]
     direct = items[: p.max_avoid] if (p.negative or p.negation == "clause") else []
     return direct, positive
 
@@ -230,11 +235,23 @@ def _style_head(b: Brief, lead: str) -> tuple[str, str]:
     return head, ", ".join(parts[1:])
 
 
+def _near_white(bg: str) -> bool:
+    """White, off-white and pale tints. They read as a colored canvas to most models and make removal harder."""
+    low = bg.lower()
+    if any(w in low for w in ("white", "transparent", "off-white", "ivory")) or not low.strip():
+        return True
+    rgb = _rgb(bg)
+    if rgb is None:
+        return False
+    r, g, b = (c / 255 for c in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.9 and max(rgb) - min(rgb) < 24
+
+
 def _background(b: Brief, transparent: bool) -> str:
     if transparent:
         return "transparent background"
     bg = b.background.strip() or "white"
-    if bg.lower() in ("white", "plain white", "transparent", "solid white", "#ffffff"):
+    if _near_white(bg):
         return "plain white background"
     return bg if "background" in bg.lower() else f"solid {bg} background"
 
@@ -444,7 +461,7 @@ def recraft_controls(b: Brief, transparent: bool) -> dict:
     controls: dict = {"colors": colors} if colors else {}
     if not transparent:
         bg = b.background.lower()
-        rgb = _rgb(bg) or ((255, 255, 255) if "white" in bg or not bg.strip() else None)
+        rgb = (255, 255, 255) if _near_white(bg) else _rgb(bg)
         if rgb:
             controls["background_color"] = {"rgb": list(rgb)}
     return {"provider": {"options": {"recraft": {"controls": controls}}}} if controls else {}
