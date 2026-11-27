@@ -3,6 +3,8 @@ import { toast } from "sonner"
 
 import {
   api,
+  ApiError,
+  type FeedbackEvent,
   type Catalog,
   type Chat,
   type ChatSummary,
@@ -223,6 +225,7 @@ export interface GenerateBody {
   images_per_prompt?: number
   references?: string[]
   chat_id?: string
+  message_id?: number
 }
 
 export const useGenerate = () => useStartJob((b: GenerateBody) => api.post<Job>("/generate", b))
@@ -296,6 +299,7 @@ function useImageMutation<T, R>(fn: (vars: T) => Promise<R>) {
       qc.invalidateQueries({ queryKey: ["images"] })
       qc.invalidateQueries({ queryKey: ["image"] })
       qc.invalidateQueries({ queryKey: keys.system })
+      qc.invalidateQueries({ queryKey: keys.chats })
     },
   })
 }
@@ -325,22 +329,91 @@ export const useRemoveBackground = () =>
 
 // ── Chats ──────────────────────────────────────────────────────────
 
-export const useChats = () => useQuery({ queryKey: keys.chats, queryFn: () => api.get<ChatSummary[]>("/chats") })
+export const useChats = (q = "") =>
+  useQuery({
+    queryKey: [...keys.chats, "list", q] as const,
+    queryFn: () => api.get<ChatSummary[]>(`/chats${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+    placeholderData: (prev) => prev,
+    // A reply running in some chat shows a spinner in the drawer; refresh until it's done.
+    refetchInterval: (query) => (query.state.data?.some((c) => c.streaming) ? 2000 : false),
+  })
 
-export const useChat = (id: string) => useQuery({ queryKey: keys.chat(id), queryFn: () => api.get<Chat>(`/chats/${id}`) })
+export const useChat = (id: string, enabled = true) =>
+  useQuery({
+    queryKey: keys.chat(id),
+    queryFn: () => api.get<Chat>(`/chats/${id}`),
+    enabled,
+    retry: (n, e) => !(e instanceof ApiError && e.status === 404) && n < 2,
+    // While images are being made for this chat, keep the inline grids filling in.
+    refetchInterval: (query) => (query.state.data?.jobs.some((j) => j.status === "running") ? 1500 : false),
+  })
 
-export function useCreateChat() {
+function useChatMutation<T, R>(fn: (vars: T) => Promise<R>, after?: (r: R, vars: T, qc: QueryClient) => void) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: () => api.post<Chat>("/chats", {}),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.chats }),
+    mutationFn: fn,
+    onSuccess: (r, vars) => {
+      qc.invalidateQueries({ queryKey: keys.chats })
+      after?.(r, vars, qc)
+    },
   })
 }
 
-export function useDeleteChat() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => api.del(`/chats/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.chats }),
-  })
+export const useCreateChat = () => useChatMutation(() => api.post<Chat>("/chats", {}))
+
+export const useUpdateChat = () =>
+  useChatMutation(({ id, ...body }: { id: string; title?: string; pinned?: boolean }) => api.patch<Chat>(`/chats/${id}`, body))
+
+export const useDeleteChat = () => useChatMutation((id: string) => api.del(`/chats/${id}`))
+
+export const useRestoreChat = () => useChatMutation((id: string) => api.post<Chat>(`/chats/${id}/restore`))
+
+export interface SendBody {
+  chatId: string
+  content: string
+  images: string[]
+  edit_of?: number
 }
+
+export const useSendMessage = () =>
+  useChatMutation(({ chatId, ...body }: SendBody) =>
+    api.post<{ user_id: number; reply_id: number }>(`/chats/${chatId}/messages`, body),
+  )
+
+export const useRegenerate = () =>
+  useChatMutation(({ chatId, messageId }: { chatId: string; messageId: number }) =>
+    api.post<{ reply_id: number }>(`/chats/${chatId}/messages/${messageId}/regenerate`),
+  )
+
+export const useStopReply = () =>
+  useChatMutation(({ chatId, messageId }: { chatId: string; messageId: number }) =>
+    api.post<{ stopped: boolean }>(`/chats/${chatId}/messages/${messageId}/stop`),
+  )
+
+export const useSetBranch = () =>
+  useChatMutation(
+    ({ chatId, messageId }: { chatId: string; messageId: number }) => api.put<Chat>(`/chats/${chatId}/active`, { message_id: messageId }),
+    (chat, _v, qc) => qc.setQueryData(keys.chat(chat.id), chat),
+  )
+
+export const useDeleteMessage = () =>
+  useChatMutation(({ chatId, messageId }: { chatId: string; messageId: number }) =>
+    api.del<{ stamp: number }>(`/chats/${chatId}/messages/${messageId}`),
+  )
+
+export const useRestoreMessage = () =>
+  useChatMutation(
+    ({ chatId, messageId, stamp }: { chatId: string; messageId: number; stamp: number }) =>
+      api.post<Chat>(`/chats/${chatId}/messages/${messageId}/restore`, { stamp }),
+    (chat, _v, qc) => qc.setQueryData(keys.chat(chat.id), chat),
+  )
+
+/** Like, dislike, clear, or pick ("use this direction") an image. Stored for the prompt layer to learn from. */
+export const useFeedback = () =>
+  useChatMutation((body: { kind: FeedbackEvent["kind"]; image_id: string; chat_id?: string; message_id?: number }) =>
+    api.post<FeedbackEvent>("/feedback", body),
+  (_r, vars, qc) => {
+    if (vars.chat_id) qc.invalidateQueries({ queryKey: keys.chat(vars.chat_id) })
+  })
+
+export const openChat = (id: string) => api.post(`/chats/${id}/open`).catch(() => undefined)

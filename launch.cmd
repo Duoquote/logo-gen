@@ -1,6 +1,7 @@
 @echo off
 rem Start logo-gen on Windows (cmd or PowerShell): sets up uv, Python packages and the
-rem frontend, then runs the server. Usage: logo-gen [--port 7860] [--with-local] [--dev]
+rem frontend, then runs the server. Usage: launch.cmd [--port 7860] [--with-local] [--dev]
+rem In PowerShell: .\launch.cmd   On macOS, Linux and Git Bash, use ./launch.sh instead.
 setlocal
 set "ROOT=%~dp0"
 set "ROOT=%ROOT:~0,-1%"

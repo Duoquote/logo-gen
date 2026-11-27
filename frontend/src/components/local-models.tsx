@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router"
 import { CheckIcon, DownloadIcon, ExternalLinkIcon, GaugeIcon, Loader2Icon, PauseIcon, RefreshCwIcon, Trash2Icon } from "lucide-react"
 
 import { JobProgress } from "@/components/job-progress"
+import { useRankings } from "@/lib/rankings"
 
 import {
   AlertDialog,
@@ -139,6 +140,10 @@ function ModelCard({ m }: { m: LocalModel }) {
             <a href={m.page_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 underline">
               {m.repo} <ExternalLinkIcon className="size-3" />
             </a>
+          </dd>
+          <dt className="text-muted-foreground">Quality</dt>
+          <dd>
+            <LocalQuality id={m.ref} />
           </dd>
           <dt className="text-muted-foreground">Runs on</dt>
           <dd className="flex flex-wrap gap-1">
@@ -310,5 +315,22 @@ function SpeedTest({ m }: { m: LocalModel }) {
         </>
       )}
     </div>
+  )
+}
+
+/** The LMArena score, if the leaderboard rates this model; otherwise say so. */
+function LocalQuality({ id }: { id: string }) {
+  const r = useRankings().data
+  const k = r?.models[id]
+  if (!r) return <span className="text-muted-foreground">...</span>
+  if (!k?.ranked) return <span className="text-muted-foreground">not ranked (not on the LMArena text-to-image leaderboard)</span>
+  return (
+    <span>
+      {Math.round(k.rating!)} on LMArena {k.category === "commercial_design" ? "commercial design" : "overall"}
+      {k.rank ? `, #${k.rank} of the ranked models you can use here` : ""}{" "}
+      <a href={r.source.url} target="_blank" rel="noreferrer" className="text-muted-foreground underline">
+        (source, {r.source.published})
+      </a>
+    </span>
   )
 }

@@ -16,11 +16,11 @@ export function JobsMenu() {
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm" aria-label="Jobs">
           {running.length ? <Loader2Icon className="animate-spin" /> : <ActivityIcon />}
-          Jobs
+          <span className="hidden sm:inline">Jobs</span>
           {running.length > 0 && <Badge>{running.length}</Badge>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-96">
+      <PopoverContent align="end" className="w-[min(24rem,calc(100vw-1rem))]">
         {recent.length === 0 ? (
           <p className="text-xs text-muted-foreground">No jobs yet. Generations show up here with their progress.</p>
         ) : (
