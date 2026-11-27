@@ -194,10 +194,14 @@ def sync_feedback() -> int:
 
 
 def add_notes(chat_id: str | None, more: list[str] | None = None, less: list[str] | None = None) -> None:
-    """Store "more of" / "less of" phrases from the user's own words."""
+    """Store "more of" / "less of" phrases from the user's own words, for this chat only.
+
+    They're about one project ("stacked stones", "not the P lettermark"), so
+    they never go into the cross-chat profile.
+    """
     _db()
     now = time.time()
-    for scope in _scopes(chat_id):
+    for scope in [chat_scope(chat_id)] if chat_id else []:
         for kind, items in (("more", more or []), ("less", less or [])):
             for text in items[:6]:
                 text = " ".join(str(text).split())[:80]
@@ -223,10 +227,17 @@ def _rank(scores: dict[str, float], positive: bool, n: int = 4) -> list[str]:
     return [k for k, _ in items[:n]]
 
 
-def profile(scope: str) -> dict:
-    """The learned profile for a scope, in a form the UI can show as is."""
+def profile(scope: str, exclude_chat: str | None = None) -> dict:
+    """The learned profile for a scope, in a form the UI can show as is.
+
+    exclude_chat leaves out votes on that chat's images, so the cross-chat
+    profile shown next to a chat's own doesn't count the same reactions twice.
+    """
     _db()
     votes = library._q("SELECT * FROM taste_votes WHERE scope = ? ORDER BY created_at", (scope,))
+    if exclude_chat:
+        own = {r["image_id"] for r in library._q("SELECT image_id FROM taste_votes WHERE scope = ?", (chat_scope(exclude_chat),))}
+        votes = [v for v in votes if v["image_id"] not in own]
     notes = library._q("SELECT * FROM taste_notes WHERE scope = ? ORDER BY id DESC LIMIT 60", (scope,))
     scores: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     models: dict[str, dict] = {}
@@ -265,10 +276,14 @@ def profile(scope: str) -> dict:
 LABELS = {"mark_type": "mark types", "style": "styles", "shape": "shapes", "color": "colors"}
 
 
+GENERAL = ("mark_type", "style", "shape")  # traits that carry over between projects; colors and notes don't
+
+
 def _describe(p: dict, strong_only: bool = False) -> list[str]:
     lines = []
-    liked = "; ".join(f"{LABELS[c]} {', '.join(v)}" for c, v in p["liked"].items())
-    disliked = "; ".join(f"{LABELS[c]} {', '.join(v)}" for c, v in p["disliked"].items())
+    cats = GENERAL if strong_only else tuple(LABELS)
+    liked = "; ".join(f"{LABELS[c]} {', '.join(v)}" for c, v in p["liked"].items() if c in cats)
+    disliked = "; ".join(f"{LABELS[c]} {', '.join(v)}" for c, v in p["disliked"].items() if c in cats)
     if liked:
         lines.append(f"- Liked: {liked}")
     if disliked:
@@ -277,9 +292,9 @@ def _describe(p: dict, strong_only: bool = False) -> list[str]:
         good = [m["model"] for m in p["models"] if m["score"] > 0][:3]
         if good:
             lines.append(f"- Image models behind the liked results: {', '.join(good)}")
-    if p["more"]:
+    if p["more"] and not strong_only:
         lines.append(f"- Asked for: {'; '.join(p['more'])}")
-    if p["less"]:
+    if p["less"] and not strong_only:
         lines.append(f"- Asked to avoid: {'; '.join(p['less'])}")
     return lines
 
@@ -295,11 +310,12 @@ def designer_context(chat_id: str | None) -> str:
                 "they disliked, and don't bring back rejected ideas unless they ask:\n" + "\n".join(_describe(p))
             )
     if get_settings().use_global_taste:
-        g = profile(GLOBAL)
-        if not g["empty"] and (g["counts"]["like"] + g["counts"]["pick"] + g["counts"]["dislike"]) >= 3:
+        g = profile(GLOBAL, exclude_chat=chat_id)
+        general = _describe(g, strong_only=True)
+        if general and (g["counts"]["like"] + g["counts"]["pick"] + g["counts"]["dislike"]) >= 3:
             parts.append(
                 "Across earlier chats this user tended toward the following. Treat it as a weak hint; "
-                "this chat's brief wins:\n" + "\n".join(_describe(g, strong_only=True))
+                "this chat's brief wins:\n" + "\n".join(general)
             )
     return "\n\n".join(parts)
 

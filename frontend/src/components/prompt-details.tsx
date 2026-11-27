@@ -50,14 +50,43 @@ export function BriefView({ brief }: { brief: Brief }) {
   )
 }
 
+type Rgb = { rgb: [number, number, number] }
+
+const isRgb = (v: unknown): v is Rgb =>
+  typeof v === "object" && v !== null && Array.isArray((v as Rgb).rgb) && (v as Rgb).rgb.length === 3
+
+const hex = ({ rgb }: Rgb) => "#" + rgb.map((c) => c.toString(16).padStart(2, "0")).join("").toUpperCase()
+
+/** Flatten request options into label/value pairs. Provider passthrough reads as "recraft colors", not "provider". */
+function flatten(params: Record<string, unknown>, prefix = ""): [string, unknown][] {
+  const out: [string, unknown][] = []
+  for (const [k, v] of Object.entries(params)) {
+    const key = prefix ? `${prefix} ${k}` : k
+    if (isRgb(v) || Array.isArray(v) || typeof v !== "object" || v === null) out.push([key, v])
+    else out.push(...flatten(v as Record<string, unknown>, k === "provider" || k === "options" || k === "controls" ? prefix : key))
+  }
+  return out
+}
+
+function Swatch({ c }: { c: Rgb }) {
+  return <span className="inline-block size-2.5 border align-middle" style={{ background: hex(c) }} title={hex(c)} />
+}
+
 function ParamBadges({ params }: { params: Record<string, unknown> | null | undefined }) {
-  const entries = Object.entries(params ?? {})
+  const entries = flatten(params ?? {})
   if (!entries.length) return null
   return (
     <div className="flex flex-wrap gap-1">
       {entries.map(([k, v]) => (
-        <Badge key={k} variant="outline" className="font-mono text-[10px]">
-          {k}={String(v)}
+        <Badge key={k} variant="outline" className="gap-1 font-mono text-[10px]">
+          {k.replace(/_/g, " ")}
+          {isRgb(v) ? (
+            <Swatch c={v} />
+          ) : Array.isArray(v) && v.every(isRgb) ? (
+            v.map((c, i) => <Swatch key={i} c={c} />)
+          ) : (
+            <span>{typeof v === "object" ? JSON.stringify(v) : String(v)}</span>
+          )}
         </Badge>
       ))}
     </div>

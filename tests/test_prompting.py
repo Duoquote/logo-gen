@@ -431,3 +431,19 @@ def test_meaning_clauses_stay_out_of_image_prompts():
         assert "drone" not in render.render(b, m, INFO.get(m)).prompt
     assert render.drawable("a leaf shaped like a heart") == "a leaf shaped like a heart"
     assert render.drawable("a wedge pulled out, the small wedge standing for taxes") == "a wedge pulled out"
+
+
+def test_other_chats_lend_only_general_taste(settings, tmp_path, monkeypatch):
+    """Found in the browser test: notes from one project ("stacked stones") showed up in another chat's designer."""
+    monkeypatch.setattr(paths, "OUTPUT_DIR", tmp_path / "out")
+    for i, name in enumerate(("a", "b", "c")):
+        _react("like", _image(tmp_path, name, BRIEFS["geo-saas"], chat_id="old")["id"])
+    preferences.add_notes("old", more=["stacked stones"], less=["the P lettermark"])
+
+    ctx = preferences.designer_context("new")
+    assert "earlier chats" in ctx and "flat vector" in ctx and "pictorial" in ctx
+    assert "stacked stones" not in ctx and "P lettermark" not in ctx and "#0F766E" not in ctx
+
+    # In the chat that made them, the same votes count once, as this chat's own.
+    ctx_old = preferences.designer_context("old")
+    assert "stacked stones" in ctx_old and "earlier chats" not in ctx_old
