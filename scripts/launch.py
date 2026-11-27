@@ -235,10 +235,11 @@ _SYSTEM = {"explorer.exe", "services.exe", "svchost.exe", "wininit.exe", "winlog
 
 
 def _watched_pids() -> list[int]:
-    """uv, which started us (past the python.exe trampolines venvs use on Windows), and the shells above it.
+    """uv, which started us (past the python.exe trampolines venvs use on Windows), and the script's shell.
 
-    Watching the shells matters: on Windows, ending a shell doesn't end what it
-    started, so killing the outer shell leaves the inner one and uv running.
+    On Windows, ending a process doesn't end what it started, so killing uv or
+    the launch script's shell from Task Manager would otherwise leave the server
+    running on the port.
     """
     if not IS_WIN:
         return [os.getppid()]
@@ -248,13 +249,13 @@ def _watched_pids() -> list[int]:
     while pid in procs and procs[pid][1] == "python.exe" and pid not in seen:
         seen.add(pid)
         pid = procs[pid][0]
-    # Then up to three shells or terminals above uv, stopping at long-lived system processes.
+    # Plus the launch script's own shell (sh for launch.sh, cmd for launch.cmd), but nothing above it:
+    # a wrapper that starts the launcher and exits shouldn't take the server down. Closing a terminal
+    # already ends every console process in it.
     out = [pid]
-    while len(out) < 4 and pid in procs:
-        pid = procs[pid][0]
-        if pid not in procs or procs[pid][1] in _SYSTEM or pid in out:
-            break
-        out.append(pid)
+    parent = procs[pid][0] if pid in procs else None
+    if parent in procs and procs[parent][1] not in _SYSTEM:
+        out.append(parent)
     return out
 
 
