@@ -54,13 +54,25 @@ export const keys = {
 
 // ── Settings ───────────────────────────────────────────────────────
 
+// Settings change from other pages, other tabs and the designer itself ("use only Z-Image"), so a cached copy
+// mustn't live forever: the composer and the Generate button send what this shows.
 export const useSettings = () =>
-  useQuery({ queryKey: keys.settings, queryFn: () => api.get<SettingsResponse>("/settings"), staleTime: Infinity })
+  useQuery({ queryKey: keys.settings, queryFn: () => api.get<SettingsResponse>("/settings"), staleTime: 10_000 })
 
 export function useUpdateSettings() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (patch: Partial<Settings>) => api.put<SettingsResponse>("/settings", patch),
+    // Show the change right away, so a message sent before the request returns carries it.
+    onMutate: async (patch) => {
+      await qc.cancelQueries({ queryKey: keys.settings })
+      const prev = qc.getQueryData<SettingsResponse>(keys.settings)
+      if (prev) qc.setQueryData<SettingsResponse>(keys.settings, { ...prev, settings: { ...prev.settings, ...patch } })
+      return { prev }
+    },
+    onError: (_e, _patch, ctx) => {
+      if (ctx?.prev) qc.setQueryData(keys.settings, ctx.prev)
+    },
     onSuccess: (data, patch) => {
       qc.setQueryData(keys.settings, data)
       // Caps and batch sizes are shown on the local model cards too.
@@ -393,15 +405,25 @@ export interface SendBody {
   edit_of?: number
 }
 
-export const useSendMessage = () =>
-  useChatMutation(({ chatId, ...body }: SendBody) =>
-    api.post<{ user_id: number; reply_id: number }>(`/chats/${chatId}/messages`, body),
-  )
+/** The image models and count the composer shows, sent with each turn so the reply sees exactly that. */
+function composerState(qc: QueryClient) {
+  const s = qc.getQueryData<SettingsResponse>(keys.settings)?.settings
+  return s ? { image_models: s.image_models, images_per_prompt: s.images_per_prompt } : {}
+}
 
-export const useRegenerate = () =>
-  useChatMutation(({ chatId, messageId }: { chatId: string; messageId: number }) =>
-    api.post<{ reply_id: number }>(`/chats/${chatId}/messages/${messageId}/regenerate`),
+export const useSendMessage = () => {
+  const qc = useQueryClient()
+  return useChatMutation(({ chatId, ...body }: SendBody) =>
+    api.post<{ user_id: number; reply_id: number }>(`/chats/${chatId}/messages`, { ...body, ...composerState(qc) }),
   )
+}
+
+export const useRegenerate = () => {
+  const qc = useQueryClient()
+  return useChatMutation(({ chatId, messageId }: { chatId: string; messageId: number }) =>
+    api.post<{ reply_id: number }>(`/chats/${chatId}/messages/${messageId}/regenerate`, composerState(qc)),
+  )
+}
 
 export const useStopReply = () =>
   useChatMutation(({ chatId, messageId }: { chatId: string; messageId: number }) =>

@@ -46,6 +46,8 @@ export function useLiveReply(chatId: string, msg: ChatMessage | undefined): Live
           qc.invalidateQueries({ queryKey: keys.chat(chatId) })
           qc.invalidateQueries({ queryKey: keys.chats })
           qc.invalidateQueries({ queryKey: ["spend"] })
+          // The designer can switch the image models or the count when asked to.
+          qc.invalidateQueries({ queryKey: keys.settings })
           break
       }
     })

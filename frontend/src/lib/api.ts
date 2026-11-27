@@ -369,6 +369,7 @@ export interface ChatMessage {
   images: string[]
   prompts: Prompt[]
   status: MessageStatus
+  note: string // the server's line under a reply: what's rendering, or what Generate would make
   error: string
   model: string
   created_at: number
