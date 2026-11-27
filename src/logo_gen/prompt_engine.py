@@ -11,95 +11,100 @@ from typing import AsyncIterator
 from logo_gen.clients import claude_cli, local_llm, openrouter
 from logo_gen.config import get_settings
 
-PROMPT_RULES = """\
-How to write an image prompt:
-- 1 to 3 plain sentences, no keyword lists. Lead with the logo type and the symbol.
-- Describe the symbol in concrete shapes ("a fox head built from three triangles", \
-not "a dynamic fox").
-- Name the style (flat vector, geometric, line mark, negative space, soft gradient, etc.).
-- Give 1 to 3 colors by name and hex, e.g. "deep teal #0F766E".
-- Say how it sits: centered, generous padding, on a plain white background.
-- It is an icon, so no text, letters or wordmarks unless the user asks for them. \
-Say "no text" once; do not pile on negative phrases.
-- Keep it simple enough to read at 32 px."""
+from logo_gen.prompting import brief as briefs
+from logo_gen.prompting import preferences
+
+_FIELD_LINES = "\n".join(f"- {k}: {v}" for k, v in briefs.FIELDS.items())
+
+BRIEF_RULES = f"""\
+You write design briefs, not image prompts. A separate step turns each brief into the \
+prompt each image model reads best, so leave out prompt tricks, quality words and \
+model names. Each direction is a JSON object with these fields:
+{_FIELD_LINES}
+
+What makes a good brief:
+- One idea per direction, built from a few concrete shapes. It has to read at 16 to 32 px.
+- The subject says what is drawn and how it is built, not the mood ("a leaf made of two \
+overlapping circles", not "a dynamic, organic feel").
+- text holds the exact wording only for wordmark, lettermark, combination or emblem marks. \
+Keep it to the name; no taglines. Use an empty string for symbols.
+- 1 to 3 colors with hex values that fit the brand, with enough contrast to work in one color too.
+- avoid lists specific things that would hurt this brief, not generic ones."""
 
 DESIGNER_SYSTEM = f"""\
-You are a senior brand designer who also writes prompts for image models. \
-You help the user find a logo mark (an icon, not a wordmark) through a short conversation.
+You are a senior brand designer. You help the user find a logo through a short conversation.
 
-How to talk:
-- Be brief and concrete. No flattery, no filler.
-- If the brief is thin, ask at most 3 short questions in one message (what the thing is, \
-the feeling, colors or constraints). If the user wants to skip questions, go straight to directions.
-- When you have enough, or the user asks to generate, propose distinct directions. \
-Each direction should be a different idea, not the same idea in four colors.
-- When the user gives feedback on results, adjust and propose new directions.
-- If the user attaches reference images, the image model will see them too. Refer to \
-what to keep and what to change rather than describing the image from scratch.
+Before proposing directions you need: the name, what it is (product or industry), who it \
+is for, two or three personality words, the mark type (symbol, lettermark, wordmark, \
+combination, emblem), colors to use or avoid, and where it will be used (app icon, \
+favicon, website, print). If the user gave most of this, don't ask: fill the gaps with \
+sensible defaults and say in one line what you assumed. Otherwise ask at most 4 short \
+questions in one message, each with a suggested default, so the user can just say "go".
 
-{PROMPT_RULES}
+When you have enough, or the user asks to generate, propose 4 directions (or the number \
+they ask for). Make them different ideas: a different subject or construction, and \
+different mark types where it makes sense. Not one idea in four colors.
 
-When you propose directions, write a one-line summary of each, then end your reply \
-with exactly one fenced JSON block in this form (4 directions unless the user asks \
-for a different number):
+When the user reacts to results, say in one sentence what you will change, then propose \
+new directions. If they attach reference images, the image models see them too: say what \
+to keep and what to change instead of describing them.
+
+Be brief and concrete. No flattery.
+
+{BRIEF_RULES}
+
+Reply format: a one-line summary per direction, then exactly one fenced JSON block:
 
 ```json
-{{"prompts": [{{"concept": "short name", "style": "style in 2-4 words", "prompt": "the image prompt"}}]}}
+{{"directions": [{{"concept": "...", "mark_type": "...", "format": "...", "subject": "...", "composition": "...", \
+"shape_language": "...", "style": "...", "palette": [{{"name": "...", "hex": "#RRGGBB"}}], "background": "white", \
+"text": "", "avoid": ["..."]}}], "feedback": {{"more": [], "less": []}}}}
 ```
 
-Do not put a JSON block in replies that only ask questions."""
+feedback holds short phrases from the user's own reactions since your last reply, such as \
+"more": ["thicker strokes"] or "less": ["gradients"]. Leave both lists empty if there were none. \
+A reply that only asks questions has no JSON block, unless the user gave feedback; then \
+send a block with only "feedback"."""
 
 DIRECTIONS_SYSTEM = f"""\
-You are a senior brand designer writing prompts for image models. Given a short brief, \
-return distinct logo mark directions. Each one must be a different idea (different \
-symbol or construction), not a recolor.
+You are a senior brand designer. Given a short brief, return distinct logo directions. Each \
+one must be a different idea (a different subject or construction), not a recolor. Where \
+the brief leaves things open, choose what a good designer would and stay consistent with it.
 
-{PROMPT_RULES}"""
+{BRIEF_RULES}"""
 
 VARIATION_SYSTEM = f"""\
-You are a senior brand designer. The user picked a logo and wants variations of it. \
-Keep the core idea of the original prompt and change one thing per variation: \
-proportions, line weight, color palette, level of detail, or a small twist on the symbol. \
-If the user gave an instruction, follow it in every variation.
+You are a senior brand designer. The user picked a logo and wants variations of it. Keep \
+the core idea of the original brief and change one thing per variation: proportions, \
+stroke weight, palette, level of detail, or a small twist on the subject. If the user gave \
+an instruction, follow it in every variation.
 
-{PROMPT_RULES}"""
+{BRIEF_RULES}"""
 
-PROMPTS_SCHEMA = {
-    "name": "logo_prompts",
-    "strict": True,
-    "schema": {
-        "type": "object",
-        "properties": {
-            "prompts": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "concept": {"type": "string"},
-                        "style": {"type": "string"},
-                        "prompt": {"type": "string"},
-                    },
-                    "required": ["concept", "style", "prompt"],
-                    "additionalProperties": False,
-                },
-            }
-        },
-        "required": ["prompts"],
-        "additionalProperties": False,
-    },
-}
+BRIEF_SCHEMA = briefs.json_schema()
 
 # ── Parsing ──────────────────────────────────────────────────────────
 
 _FENCE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.S)
 
 
+def direction_from_brief(d: dict) -> dict:
+    """A brief from the chat model as a direction: the readable fields the UI shows, plus the brief."""
+    b = briefs.from_dict(d)
+    return {"concept": b.concept, "style": b.style, "prompt": b.summary(), "brief": b.to_dict()}
+
+
 def _clean_prompts(items: object) -> list[dict]:
+    """Directions from a list of briefs, or of old-style {"prompt": ...} entries."""
     out = []
     if not isinstance(items, list):
         return out
     for it in items:
-        if isinstance(it, dict) and str(it.get("prompt") or "").strip():
+        if not isinstance(it, dict):
+            continue
+        if briefs.is_brief(it):
+            out.append(direction_from_brief(it))
+        elif str(it.get("prompt") or "").strip():
             out.append({
                 "concept": str(it.get("concept") or "").strip() or "Direction",
                 "style": str(it.get("style") or "").strip(),
@@ -108,33 +113,56 @@ def _clean_prompts(items: object) -> list[dict]:
     return out
 
 
-def parse_prompts(text: str) -> list[dict]:
-    """Find a {"prompts": [...]} object in a reply. Uses the last fenced block."""
+def _blocks(text: str) -> list[dict]:
     candidates = _FENCE.findall(text)
     if not candidates:
-        start = text.find("{")
-        end = text.rfind("}")
+        start, end = text.find("{"), text.rfind("}")
         if start != -1 and end > start:
             candidates = [text[start : end + 1]]
+    out = []
     for raw in reversed(candidates):
         try:
             data = json.loads(raw)
         except json.JSONDecodeError:
             continue
         if isinstance(data, dict):
-            prompts = _clean_prompts(data.get("prompts"))
-            if prompts:
-                return prompts
-        if isinstance(data, list):
-            prompts = _clean_prompts(data)
-            if prompts:
-                return prompts
-    return []
+            out.append(data)
+        elif isinstance(data, list):
+            out.append({"directions": data})
+    return out
+
+
+def parse_reply(text: str) -> tuple[list[dict], dict]:
+    """(directions, feedback) from a reply. Uses the last block that has them."""
+    directions: list[dict] = []
+    feedback: dict = {}
+    for data in _blocks(text):
+        if not directions:
+            directions = _clean_prompts(data.get("directions") or data.get("prompts"))
+        fb = data.get("feedback")
+        if not feedback and isinstance(fb, dict):
+            feedback = {
+                k: [str(x).strip() for x in (fb.get(k) or []) if str(x).strip()][:6]
+                for k in ("more", "less")
+            }
+    return directions, feedback
+
+
+def parse_prompts(text: str) -> list[dict]:
+    return parse_reply(text)[0]
 
 
 def strip_prompt_block(text: str) -> str:
     """Remove the JSON block from a reply for display."""
     return _FENCE.sub("", text).strip()
+
+
+def learn_from_reply(chat_id: str, text: str) -> dict:
+    """Store the feedback phrases the designer pulled from the user's messages."""
+    _, fb = parse_reply(text)
+    if fb.get("more") or fb.get("less"):
+        preferences.add_notes(chat_id, fb.get("more"), fb.get("less"))
+    return fb
 
 
 # ── Messages ─────────────────────────────────────────────────────────
@@ -155,13 +183,19 @@ def user_content(text: str, images: list[Path] | None) -> str | list[dict]:
     ]
 
 
-def build_history(messages: list[dict], resolve, vision: bool) -> list[dict]:
+def designer_system(chat_id: str | None = None) -> str:
+    learned = preferences.designer_context(chat_id)
+    return DESIGNER_SYSTEM + (f"\n\n{learned}" if learned else "")
+
+
+def build_history(messages: list[dict], resolve, vision: bool, chat_id: str | None = None) -> list[dict]:
     """Turn stored chat messages into LLM messages.
 
-    Assistant turns get their prompt directions re-attached so the model can
-    refer to "direction 2" later.
+    Assistant turns get their directions re-attached so the model can refer
+    to "direction 2" later. The system prompt carries what the user's
+    reactions taught us so far.
     """
-    out: list[dict] = [{"role": "system", "content": DESIGNER_SYSTEM}]
+    out: list[dict] = [{"role": "system", "content": designer_system(chat_id)}]
     for m in messages:
         if m["role"] == "user":
             imgs = [resolve(p) for p in m.get("images") or []] if vision else []
@@ -172,7 +206,13 @@ def build_history(messages: list[dict], resolve, vision: bool) -> list[dict]:
         else:
             text = m["content"]
             if m.get("prompts"):
-                text += "\n\n```json\n" + json.dumps({"prompts": m["prompts"]}) + "\n```"
+                ps = m["prompts"]
+                block = (
+                    {"directions": [p["brief"] for p in ps]}
+                    if all(briefs.is_brief(p.get("brief")) for p in ps)
+                    else {"prompts": [{k: p.get(k, "") for k in ("concept", "style", "prompt")} for p in ps]}
+                )
+                text += "\n\n```json\n" + json.dumps(block) + "\n```"
             out.append({"role": "assistant", "content": text})
     return out
 
@@ -239,21 +279,24 @@ async def _complete(messages: list[dict], structured: bool) -> tuple[str, dict]:
         model=s.chat_model,
         temperature=0.9,
         reasoning_effort=s.reasoning_effort,
-        json_schema=PROMPTS_SCHEMA if structured else None,
+        json_schema=BRIEF_SCHEMA if structured else None,
     )
     return text, cost_record(usage, s.chat_model)
 
 
-_JSON_TAIL = (
-    'Return only JSON in this form: {"prompts": [{"concept": "...", "style": "...", "prompt": "..."}]}'
-)
+_JSON_TAIL = 'Return only JSON in this form: {"directions": [brief, ...]}, with every field filled in.'
 
 
-async def directions(brief: str, n: int, images: list[Path] | None = None) -> tuple[list[dict], dict]:
-    """One-shot: brief -> n prompt directions."""
+async def directions(
+    brief: str, n: int, images: list[Path] | None = None, chat_id: str | None = None
+) -> tuple[list[dict], dict]:
+    """One-shot: brief -> n directions, each with a design brief."""
     text = f"Brief: {brief}\n\nWrite {n} directions. {_JSON_TAIL}"
     if images:
         text += "\nThe attached images are references; the image model will see them too."
+    learned = preferences.designer_context(chat_id)
+    if learned:
+        text += f"\n\n{learned}"
     vision = await chat_supports_images()
     messages = [
         {"role": "system", "content": DIRECTIONS_SYSTEM},
@@ -262,22 +305,29 @@ async def directions(brief: str, n: int, images: list[Path] | None = None) -> tu
     reply, cost = await _complete(messages, structured=True)
     prompts = parse_prompts(reply)
     if not prompts:
-        raise ValueError("The chat model did not return usable prompts. Try again or pick another chat model.")
+        raise ValueError("The chat model did not return usable directions. Try again or pick another chat model.")
     return prompts[:n], cost
 
 
 async def variations(original: dict, n: int, instruction: str = "") -> tuple[list[dict], dict]:
-    """Close variations of one prompt."""
-    text = (
-        f"Original prompt: {original.get('prompt')}\n"
-        f"Concept: {original.get('concept') or ''}\nStyle: {original.get('style') or ''}\n"
-    )
+    """Close variations of one direction (its brief, or its prompt for older images)."""
+    b = original.get("brief")
+    if briefs.is_brief(b):
+        text = f"Original brief: {json.dumps(b)}\n"
+    else:
+        text = (
+            f"Original prompt: {original.get('prompt')}\n"
+            f"Concept: {original.get('concept') or ''}\nStyle: {original.get('style') or ''}\n"
+        )
     if instruction:
         text += f"Instruction: {instruction}\n"
     text += f"\nWrite {n} variations. {_JSON_TAIL}"
+    learned = preferences.designer_context(original.get("chat_id"))
+    if learned:
+        text += f"\n\n{learned}"
     messages = [{"role": "system", "content": VARIATION_SYSTEM}, {"role": "user", "content": text}]
     reply, cost = await _complete(messages, structured=True)
     prompts = parse_prompts(reply)
     if not prompts:
-        raise ValueError("The chat model did not return usable prompts.")
+        raise ValueError("The chat model did not return usable directions.")
     return prompts[:n], cost

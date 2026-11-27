@@ -515,12 +515,30 @@ async def generate_images(
     aspect_ratio: str | None = "1:1",
     transparent: bool = False,
     references: list[tuple[bytes, str]] | None = None,
+    extra: dict | None = None,
 ) -> tuple[list[ImageResult], dict]:
-    """POST /images. Returns (images, usage). Only sends parameters the model accepts."""
+    """POST /images. Returns (images, usage). Only sends parameters the model accepts.
+
+    `extra` carries per-model fields from the prompt profile (quality,
+    resolution, output_format, background, ...). Each one is sent only if the
+    model's endpoint lists it, and only with a value it lists.
+    """
     _require_key()
     info = await model_info(model) or {}
     params = info.get("params") or {}
     payload: dict = {"model": model, "prompt": prompt}
+    for k, v in (extra or {}).items():
+        if k == "provider" and isinstance(v, dict):
+            # Provider passthrough (provider.options.<slug>.<key>). OpenRouter drops keys an endpoint doesn't allow.
+            payload["provider"] = v
+            continue
+        spec = params.get(k)
+        if spec is None or k in ("model", "prompt", "n", "seed", "input_references"):
+            continue
+        values = spec.get("values") if isinstance(spec, dict) else None
+        if values and v not in values:
+            continue
+        payload[k] = v
 
     n_spec = params.get("n") or {}
     max_n = int(n_spec.get("max") or 1)

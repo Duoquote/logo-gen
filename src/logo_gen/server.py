@@ -32,6 +32,8 @@ from logo_gen.config import (
 from logo_gen.jobs import jobs
 from logo_gen.local_models import manager
 from logo_gen.local_models.registry import MODELS
+from logo_gen.prompting import preferences, profiles
+from logo_gen.prompting.render import render_direction
 
 IMAGE_TYPES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
@@ -320,9 +322,17 @@ async def cancel_job(job_id: str):
 
 
 class PromptIn(BaseModel):
-    prompt: str
+    prompt: str = ""
     concept: str = ""
     style: str = ""
+    # The design brief this direction came from. When present, each model
+    # gets its own prompt rendered from it and `prompt` is only a summary.
+    brief: dict | None = None
+    # Hand-edited prompts per model id: {"model": {"prompt": ..., "negative_prompt": ...}}
+    overrides: dict[str, dict] | None = None
+    # Send `prompt` exactly as written to every model.
+    verbatim: bool = False
+    negative_prompt: str = ""
 
 
 class GenerateIn(BaseModel):
@@ -369,7 +379,7 @@ def _usable(model: str | None) -> bool:
 
 @app.post("/api/generate")
 async def generate(body: GenerateIn):
-    prompts = [p.model_dump() for p in body.prompts if p.prompt.strip()]
+    prompts = [p.model_dump(exclude_none=True) for p in body.prompts if p.prompt.strip() or p.brief]
     if not prompts:
         raise ValueError("No prompts to generate.")
     models = _check_models(body.models)
@@ -418,7 +428,8 @@ async def variations(image_id: str, body: VariationIn):
     img = library.get_image(image_id)
     if not img:
         raise _not_found("Image")
-    source = {"prompt": img["prompt"], "concept": img["concept"], "style": img["style"]}
+    source = {"prompt": img["prompt"], "concept": img["concept"], "style": img["style"], "brief": img.get("brief"),
+              "chat_id": img.get("chat_id")}
     if not source["prompt"]:
         raise ValueError("This image has no prompt on record, so there is nothing to vary.")
     model = body.model or img["model"]
@@ -435,7 +446,10 @@ async def variations(image_id: str, body: VariationIn):
 
     async def fn(job):
         if body.mode == "reroll":
-            prompts, per = [source], count
+            # The same rendered prompt, new seeds.
+            same = {"concept": img["concept"], "style": img["style"], "prompt": img["prompt"], "verbatim": True,
+                    "negative_prompt": img.get("negative_prompt") or "", "brief": img.get("brief")}
+            prompts, per = [same], count
         else:
             job.progress(message="Writing variations")
             job.chat_id = img.get("chat_id")
@@ -447,6 +461,106 @@ async def variations(image_id: str, body: VariationIn):
         await generator.run(job, prompts, models, per, refs, chat_id=img.get("chat_id"), parent_id=image_id)
 
     return jobs.start("variations", f"Variations of {img['concept'] or img['model']}", fn).to_dict()
+
+
+class RegenerateIn(BaseModel):
+    prompt: str
+    negative_prompt: str = ""
+    count: int = 1
+    model: str | None = None
+
+
+@app.post("/api/images/{image_id}/regenerate")
+async def regenerate(image_id: str, body: RegenerateIn):
+    """Run a hand-edited prompt on this image's model. Results land under it as variations."""
+    img = library.get_image(image_id)
+    if not img:
+        raise _not_found("Image")
+    if not body.prompt.strip():
+        raise ValueError("The prompt is empty.")
+    model = body.model or img["model"]
+    models = _check_models([model])
+    direction = {"prompt": body.prompt.strip(), "verbatim": True, "negative_prompt": body.negative_prompt,
+                 "concept": img["concept"], "style": img["style"], "brief": img.get("brief")}
+
+    async def fn(job):
+        job.chat_id = img.get("chat_id")
+        job.result["prompts"] = [direction]
+        job.result["source_id"] = image_id
+        await generator.run(job, [direction], models, max(1, min(body.count, 8)), chat_id=img.get("chat_id"),
+                            parent_id=image_id)
+
+    return jobs.start("variations", f"Edited prompt: {img['concept'] or model}", fn).to_dict()
+
+
+# ── Prompts and preferences ─────────────────────────────────────────
+
+
+@app.get("/api/prompts/profiles")
+async def prompt_profiles():
+    """The prompt profiles, and which one each selected or local model uses."""
+    s = get_settings()
+    known = list(dict.fromkeys([*s.image_models, *(f"local/{m}" for m in MODELS)]))
+    return {
+        "profiles": [p.to_dict() for p in [*profiles.PROFILES, profiles.DEFAULT]],
+        "models": {m: profiles.profile_for(m).id for m in known},
+    }
+
+
+class RenderIn(BaseModel):
+    prompts: list[PromptIn]
+    models: list[str] | None = None
+    chat_id: str | None = None
+
+
+@app.post("/api/prompts/render")
+async def render_prompts(body: RenderIn):
+    """Preview what each model would be sent for each direction, without generating."""
+    s = get_settings()
+    models = [m for m in (body.models or s.image_models) if m]
+    avoid = preferences.render_hints(body.chat_id)
+    out = []
+    for i, p in enumerate(body.prompts):
+        d = p.model_dump(exclude_none=True)
+        for m in models:
+            info = None if generator.is_local(m) else await openrouter.model_info(m)
+            out.append(render_direction(d, m, info, s.transparent_background, avoid).to_dict() | {"direction": i})
+    return {"rendered": out}
+
+
+@app.get("/api/preferences")
+async def get_preferences(chat_id: str | None = None):
+    return {
+        "chat": preferences.profile(preferences.chat_scope(chat_id)) if chat_id else None,
+        "global": preferences.profile(preferences.GLOBAL),
+        "global_enabled": get_settings().use_global_taste,
+        "designer_context": preferences.designer_context(chat_id),
+    }
+
+
+@app.delete("/api/preferences")
+async def clear_preferences(chat_id: str | None = None, scope: str | None = None):
+    if scope == "global":
+        preferences.clear(preferences.GLOBAL)
+    elif chat_id:
+        preferences.clear(preferences.chat_scope(chat_id))
+    else:
+        raise ValueError("Pass chat_id, or scope=global.")
+    return await get_preferences(chat_id)
+
+
+class FeedbackIn(BaseModel):
+    kind: str  # like | dislike | pick | clear
+    image_id: str
+    chat_id: str | None = None
+
+
+@app.post("/api/preferences/events")
+async def feedback_event(body: FeedbackIn):
+    """Integration point for like, dislike and pick buttons. See prompting/preferences.py."""
+    if body.kind not in ("like", "dislike", "pick", "clear"):
+        raise ValueError("kind must be like, dislike, pick or clear")
+    return preferences.apply_event(preferences.FeedbackEvent(body.kind, body.image_id, body.chat_id))  # type: ignore[arg-type]
 
 
 # ── Chats ───────────────────────────────────────────────────────────
@@ -507,7 +621,7 @@ async def send_message(chat_id: str, body: MessageIn):
     library.add_message(chat_id, "user", text, images=images)
     history = library.get_chat(chat_id)["messages"]  # type: ignore[index]
     vision = await prompt_engine.chat_supports_images()
-    messages = prompt_engine.build_history(history, paths.resolve_output, vision)
+    messages = prompt_engine.build_history(history, paths.resolve_output, vision, chat_id=chat_id)
 
     async def stream():
         reply = ""
@@ -524,8 +638,10 @@ async def send_message(chat_id: str, body: MessageIn):
                     rec = prompt_engine.cost_record(ev, get_settings().chat_model)
                     library.add_cost("chat", chat_id=chat_id, **rec)
                     yield _sse({"type": "usage", "credits": rec["credits"], "byok": rec["byok"]})
-            prompts = prompt_engine.parse_prompts(reply)
-            shown = prompt_engine.strip_prompt_block(reply) if prompts else reply
+            prompts, feedback = prompt_engine.parse_reply(reply)
+            if feedback:
+                prompt_engine.learn_from_reply(chat_id, reply)
+            shown = prompt_engine.strip_prompt_block(reply) if prompts or feedback else reply
             mid = library.add_message(chat_id, "assistant", shown, prompts=prompts)
             saved = True
             yield _sse({"type": "done", "message_id": mid, "content": shown, "prompts": prompts})
@@ -592,6 +708,9 @@ async def patch_image(image_id: str, body: ImagePatch):
     img = library.update_image(image_id, **body.model_dump(exclude_none=True))
     if not img:
         raise _not_found("Image")
+    if body.favorite is not None:
+        # A favorite counts as a like for what the designer learns.
+        preferences.apply_event(preferences.FeedbackEvent("like" if body.favorite else "clear", image_id))
     return img
 
 
@@ -626,7 +745,8 @@ def _raster_source(image_id: str) -> tuple[dict, Path]:
 
 
 def _derived_meta(img: dict) -> dict:
-    return {k: img.get(k) for k in ("prompt", "concept", "style", "model", "seed", "chat_id")}
+    keys = ("prompt", "concept", "style", "model", "seed", "chat_id", "brief", "negative_prompt", "params", "profile")
+    return {k: img.get(k) for k in keys}
 
 
 @app.post("/api/images/{image_id}/upscale")

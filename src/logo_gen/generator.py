@@ -16,6 +16,8 @@ from logo_gen import library, paths
 from logo_gen.clients import openrouter
 from logo_gen.config import get_settings
 from logo_gen.jobs import Job
+from logo_gen.prompting import preferences
+from logo_gen.prompting.render import Rendered, render_direction
 
 LOCAL_PREFIX = "local/"
 
@@ -139,18 +141,40 @@ async def run(
     job.progress(done=0, total=total, message=f"Generating {total} images")
     local_sem = asyncio.Semaphore(1)
 
-    def record(img_path: Path, media_type: str, model: str, prompt: dict, seed: int | None, cost: float, took: float) -> None:
+    # Render every direction for every model up front, so the job shows
+    # exactly what each model was sent.
+    infos = {m: (await openrouter.model_info(m) or {}) for m in work if not is_local(m)}
+    try:
+        avoid = preferences.render_hints(chat_id)
+    except Exception:  # noqa: BLE001  (learned hints are optional)
+        avoid = []
+    rendered: dict[tuple[str, int], Rendered] = {}
+    for m, (ps, _) in work.items():
+        for i, p in enumerate(ps):
+            r = render_direction(p, m, infos.get(m), s.transparent_background, avoid)
+            rendered[(m, i)] = r
+            job.result.setdefault("rendered", []).append(r.to_dict() | {"concept": p.get("concept", ""), "direction": i})
+            for n in r.notes:
+                note = f"{m}: {n}"
+                if note not in job.notes and n != "Edited by hand":
+                    job.notes.append(note)
+
+    def record(img_path: Path, media_type: str, model: str, prompt: dict, r: Rendered, seed: int | None,
+               cost: float, took: float) -> None:
+        brief = prompt.get("brief") if isinstance(prompt.get("brief"), dict) else None
         img = library.add_image(
             img_path, "generated",
             job_id=job.id, chat_id=chat_id, parent_id=parent_id,
-            prompt=prompt.get("prompt", ""), concept=prompt.get("concept", ""), style=prompt.get("style", ""),
+            prompt=r.prompt, concept=prompt.get("concept", ""), style=prompt.get("style", ""),
             model=model, seed=seed, media_type=media_type, cost=cost, gen_time=round(took, 2),
+            brief=brief, negative_prompt=r.negative_prompt, params=r.params, profile=r.profile,
         )
         job.image_ids.append(img["id"])
 
-    async def cloud(model: str, prompt: dict, per: int) -> None:
+    async def cloud(model: str, idx: int, prompt: dict, per: int) -> None:
         remaining = per
-        info = await openrouter.model_info(model) or {}
+        info = infos.get(model) or {}
+        r = rendered[(model, idx)]
         max_n = max(1, int(info.get("max_n") or 1))
         lim = limiter()
         attempt = 0
@@ -161,9 +185,8 @@ async def run(
             try:
                 async with lim:
                     results, usage = await openrouter.generate_images(
-                        prompt["prompt"], model, n=n, seed=seed,
-                        aspect_ratio=s.aspect_ratio, transparent=s.transparent_background,
-                        references=refs or None,
+                        r.prompt, model, n=n, seed=seed,
+                        aspect_ratio=s.aspect_ratio, references=refs or None, extra=r.params,
                     )
             except openrouter.OpenRouterError as e:
                 delay = openrouter.retry_delay(e, attempt)
@@ -187,9 +210,9 @@ async def run(
             job.add_cost("image", {"credits": credits, "byok": byok, "model": model}, images=got)
             took = time.time() - t0
             per_image_cost = (credits + byok) / max(len(results), 1)
-            for r in results[:remaining]:
-                p, mt = await asyncio.to_thread(_save, r.data, r.media_type, model, seed)
-                record(p, mt, model, prompt, seed, per_image_cost, took)
+            for res in results[:remaining]:
+                p, mt = await asyncio.to_thread(_save, res.data, res.media_type, model, seed)
+                record(p, mt, model, prompt, r, seed, per_image_cost, took)
             got = got or n
             remaining -= got
             job.done += got
@@ -203,7 +226,8 @@ async def run(
         model_id = model.removeprefix(LOCAL_PREFIX)
         spec = MODELS.get(model_id)
         batch = max(1, int(s.local_batch.get(model_id) or (spec.max_batch if spec else 1)))
-        items = [(p, random.randint(1, 2**31 - 1)) for p in ps for _ in range(per)]
+        items = [(p, rendered[(model, i)], random.randint(1, 2**31 - 1)) for i, p in enumerate(ps) for _ in range(per)]
+        options = rendered[(model, 0)].params if ps else {}
         name = spec.name if spec else model_id
         async with local_sem:
             for i in range(0, len(items), batch):
@@ -222,19 +246,20 @@ async def run(
 
                 try:
                     images = await asyncio.to_thread(
-                        diffusion.generate, model_id, [p["prompt"] for p, _ in chunk], [sd for _, sd in chunk],
+                        diffusion.generate, model_id, [r.prompt for _, r, _ in chunk], [sd for _, _, sd in chunk],
                         on_step, on_status, lambda: job.cancelled,
+                        [r.negative_prompt for _, r, _ in chunk], options,
                     )
                 except Exception as e:  # noqa: BLE001
                     job.errors.append(f"{model}: {_friendly(e)}")
                     job.done += len(items) - i
                     return
                 took = (time.time() - t0) / max(len(images), 1)
-                for im, (prompt, seed) in zip(images, chunk):
+                for im, (prompt, r, seed) in zip(images, chunk):
                     buf = io.BytesIO()
                     im.save(buf, format="PNG")
                     p, mt = await asyncio.to_thread(_save, buf.getvalue(), "image/png", model, seed)
-                    record(p, mt, model, prompt, seed, 0.0, took)
+                    record(p, mt, model, prompt, r, seed, 0.0, took)
                 job.local_images += len(images)
                 library.add_cost("image", model=model, job_id=job.id, chat_id=chat_id, images=len(images), local=True)
                 job.done += len(chunk)
@@ -244,7 +269,7 @@ async def run(
         if is_local(m):
             coros.append(local(m, ps, per))
         else:
-            coros.extend(cloud(m, p, per) for p in ps)
+            coros.extend(cloud(m, i, p, per) for i, p in enumerate(ps))
     await asyncio.gather(*coros)
     n = len(job.image_ids)
     job.result.update({"images": n, "errors": len(job.errors)})
