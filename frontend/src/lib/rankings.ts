@@ -81,7 +81,10 @@ export function topPicks(list: ModelEntry[], r: Rankings | undefined): { entry: 
     const best = sortModels(list, "quality", r)[0]
     if (r.models[best?.id]?.ranked) add(best, "Best quality")
     const value = sortModels(list, "value", r)[0]
-    if (r.models[value?.id]?.pareto) add(value, "Best value")
+    if (r.models[value?.id]?.pareto) {
+      if (picks[0]?.entry.id === value.id) picks[0].why = "Best quality and best value"
+      else add(value, "Best value")
+    }
     for (const id of r.recent) add(list.find((m) => m.id === id), "Recently used")
   }
   return picks.slice(0, 5)

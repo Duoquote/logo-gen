@@ -202,8 +202,8 @@ async def model_rankings(refresh: bool = False):
             models += [{"id": m["id"], "price": m.get("price_per_image")} for m in cat["image"]]
         except OpenRouterError as e:
             notes.append(f"No OpenRouter prices: {e.message}")
-    # Ranks count only what you can use now; models you haven't installed get their score but no rank.
-    usable = {mid for mid, spec in MODELS.items() if manager.is_installed(spec)}
+    # Ranks count only what you can use now; local models that aren't installed or can't run here get a score but no rank.
+    usable = {mid for mid, spec in MODELS.items() if manager.is_installed(spec) and spec.support(system.device_kind()) != "no"}
     models += [{"id": f"{generator.LOCAL_PREFIX}{mid}", "price": 0.0} for mid in usable]
     ranked = rankings.rank_models(models, board, pop)
     for mid in MODELS.keys() - usable:
