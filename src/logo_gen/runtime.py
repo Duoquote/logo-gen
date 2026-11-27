@@ -82,7 +82,7 @@ async def ensure_installed() -> None:
 async def _sync() -> None:
     uv = uv_path()
     if not uv:
-        raise RuntimeError("uv was not found. Start logo-gen with ./logo-gen so it can set uv up.")
+        raise RuntimeError("uv was not found. Start logo-gen with ./launch.sh (or launch.cmd on Windows) so it can set uv up.")
     variant = system.torch_variant()
     state.log.append(f"Installing local model support with PyTorch ({variant}). This downloads about "
                      f"{'2.5 GB' if variant.startswith('cu') else '300 MB'} once.")

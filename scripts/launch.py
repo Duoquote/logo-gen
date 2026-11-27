@@ -1,4 +1,4 @@
-"""One-command launcher, run by ./logo-gen through `uv run --no-project`.
+"""One-command launcher, run by ./launch.sh or launch.cmd through `uv run --no-project`.
 
 Standard library only. Steps, each skipped when nothing changed since the
 last run (hashes are kept in .tools/state.json):
@@ -285,7 +285,7 @@ def exit_with_parent() -> None:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(prog="logo-gen")
+    p = argparse.ArgumentParser(prog="launch.sh" if not IS_WIN else "launch.cmd")
     p.add_argument("--uv", required=True, help=argparse.SUPPRESS)
     p.add_argument("--host", default="127.0.0.1", help="Use 0.0.0.0 to open it to your network")
     p.add_argument("--port", type=int, default=7860)

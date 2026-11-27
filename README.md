@@ -10,11 +10,21 @@ I built it because I kept making icons for small projects and got tired of copyi
 
 ## Start
 
+On macOS, Linux or Git Bash:
+
 ```sh
-./logo-gen
+./launch.sh
 ```
 
-That's the whole setup on macOS, Linux, Git Bash and PowerShell. In `cmd`, type `logo-gen`. It prints one URL, `http://localhost:7860` by default.
+On Windows, in PowerShell or `cmd`:
+
+```
+.\launch.cmd
+```
+
+Or, if you have Node or Bun around, `npm start` or `bun run start` does the same (`npm start -- --port 8000` to pass options). That's the whole setup. It prints one URL, `http://localhost:7860` by default.
+
+Note: the launchers used to be `./logo-gen` and `logo-gen.cmd`. They're `launch.sh` and `launch.cmd` now, and the old names are gone.
 
 The first run takes about a minute. It:
 
@@ -106,7 +116,7 @@ Everything except local image generation works without a GPU: OpenRouter chat an
 To try the no-GPU path on a machine that has one:
 
 ```sh
-LOGO_GEN_DEVICE=cpu ./logo-gen
+LOGO_GEN_DEVICE=cpu ./launch.sh
 ```
 
 (`CUDA_VISIBLE_DEVICES=` with an empty value does the same.) Apple Silicon should work through Metal for SD-Turbo and FLUX.2 klein, but I haven't tested it on a Mac yet.

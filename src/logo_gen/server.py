@@ -869,8 +869,8 @@ async def serve_file(rel: str, download: bool = False):
 
 _NOT_BUILT = """<!doctype html><meta charset="utf-8"><title>logo-gen</title>
 <body style="font-family:system-ui;padding:3rem;max-width:40rem">
-<h1>Frontend not built</h1><p>Run <code>./logo-gen</code> from the project folder. It builds the
-frontend and starts the server. For frontend work, use <code>./logo-gen --dev</code>.</p></body>"""
+<h1>Frontend not built</h1><p>Run <code>./launch.sh</code> (or <code>launch.cmd</code> on Windows) from the project folder. It builds the
+frontend and starts the server. For frontend work, add <code>--dev</code>.</p></body>"""
 
 
 @app.get("/api/{rest:path}")

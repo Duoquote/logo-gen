@@ -1,6 +1,7 @@
 #!/bin/sh
 # Start logo-gen: sets up uv, Python packages and the frontend, then runs the server.
-# Usage: ./logo-gen [--port 7860] [--host 0.0.0.0] [--with-local] [--dev]
+# Usage: ./launch.sh [--port 7860] [--host 0.0.0.0] [--with-local] [--dev]
+# On Windows cmd or PowerShell, use launch.cmd instead.
 set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 

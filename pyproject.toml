@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 # Local model support is not installed by default. The app adds it the first
-# time you install a local model (or run `./logo-gen --with-local`), together
+# time you install a local model (or run `./launch.sh --with-local`), together
 # with exactly one PyTorch build: cpu, cu126 or cu130.
 [project.optional-dependencies]
 local = [
