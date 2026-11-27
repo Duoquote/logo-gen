@@ -2,6 +2,7 @@ import { useState } from "react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { CheckIcon, ChevronsUpDownIcon, Loader2Icon } from "lucide-react"
 
+import { LearnedPanel } from "@/components/learned-panel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -39,6 +40,7 @@ function SettingsPage() {
       <OpenRouterCard secret={data.secrets.OPENROUTER_KEY} />
       <ChatCard s={data.settings} />
       <ImageCard s={data.settings} />
+      <TasteCard s={data.settings} />
       <LimitsCard s={data.settings} />
       <SpendCard />
       <HuggingFaceCard secret={data.secrets.HF_TOKEN} />
@@ -333,6 +335,28 @@ function ImageCard({ s }: { s: Settings }) {
           />
           Ask for a transparent background (where supported)
         </label>
+      </CardContent>
+    </Card>
+  )
+}
+
+function TasteCard({ s }: { s: Settings }) {
+  const update = useUpdateSettings()
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>What the designer learns</CardTitle>
+        <CardDescription>
+          Each chat keeps a small profile of what you liked, disliked and picked, and what you asked for in your own
+          words. The designer reads it before writing new directions. Each chat's profile can be cleared from the chat.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <label className="flex items-center gap-2 text-xs">
+          <Switch checked={s.use_global_taste} onCheckedChange={(v) => update.mutate({ use_global_taste: v })} />
+          Also keep a taste profile across chats, and use it as a weak hint in new ones
+        </label>
+        {s.use_global_taste && <LearnedPanel />}
       </CardContent>
     </Card>
   )

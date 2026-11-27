@@ -57,6 +57,7 @@ export interface Settings {
   variations: number
   aspect_ratio: string
   transparent_background: boolean
+  use_global_taste: boolean
   max_images_cloud: number
   max_images_local: number
   model_caps: Record<string, number>
@@ -222,10 +223,63 @@ export interface LocalModelsResponse {
   runtime: RuntimeStatus
 }
 
+export interface BriefColor {
+  name: string
+  hex: string
+}
+
+/** The model-agnostic design brief the designer writes for each direction. */
+export interface Brief {
+  concept: string
+  mark_type: string
+  format: string
+  subject: string
+  composition: string
+  shape_language: string
+  style: string
+  palette: BriefColor[]
+  background: string
+  text: string
+  avoid: string[]
+}
+
 export interface Prompt {
   prompt: string
   concept: string
   style: string
+  brief?: Brief | null
+}
+
+/** What one model was (or would be) sent for one direction. */
+export interface RenderedPrompt {
+  model: string
+  profile: string
+  profile_name: string
+  style: string
+  prompt: string
+  negative_prompt: string
+  params: Record<string, unknown>
+  notes: string[]
+  direction: number
+  concept?: string
+}
+
+export interface TasteProfile {
+  scope: string
+  liked: Record<string, string[]>
+  disliked: Record<string, string[]>
+  models: { model: string; score: number; likes: number; dislikes: number }[]
+  more: string[]
+  less: string[]
+  counts: { like: number; dislike: number; pick: number; notes: number }
+  empty: boolean
+}
+
+export interface PreferencesResponse {
+  chat: TasteProfile | null
+  global: TasteProfile
+  global_enabled: boolean
+  designer_context: string
 }
 
 export interface Job {
@@ -238,7 +292,7 @@ export interface Job {
   message: string
   errors: string[]
   image_ids: string[]
-  result: { prompts?: Prompt[]; images?: number; source_id?: string } & Partial<Calibration>
+  result: { prompts?: Prompt[]; rendered?: RenderedPrompt[]; images?: number; source_id?: string } & Partial<Calibration>
   created_at: number
   finished_at: number | null
   cost: number
@@ -272,6 +326,10 @@ export interface ImageItem {
   vector: boolean
   primary_id: string | null
   primary?: ImageItem | null
+  brief?: Brief | null
+  negative_prompt?: string | null
+  params?: Record<string, unknown> | null
+  profile?: string | null
 }
 
 export interface ImageDetail extends ImageItem {

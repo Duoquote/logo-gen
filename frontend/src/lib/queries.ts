@@ -12,6 +12,7 @@ import {
   type KeyStatus,
   type LocalModel,
   type LocalModelsResponse,
+  type PreferencesResponse,
   type Prompt,
   type RuntimeStatus,
   type Settings,
@@ -46,6 +47,7 @@ export const keys = {
   spend: (chatId?: string) => ["spend", chatId ?? "all"] as const,
   localLlm: ["local-llm"] as const,
   claudeCli: ["claude-cli"] as const,
+  preferences: (chatId?: string | null) => ["preferences", chatId ?? "global"] as const,
 }
 
 // ── Settings ───────────────────────────────────────────────────────
@@ -245,6 +247,12 @@ export const useVariations = () =>
       api.post<Job>(`/images/${id}/variations`, b),
   )
 
+export const useRegenerate = () =>
+  useStartJob(
+    ({ id, ...b }: { id: string; prompt: string; negative_prompt?: string; count: number; model?: string }) =>
+      api.post<Job>(`/images/${id}/regenerate`, b),
+  )
+
 export function useCancelJob() {
   const qc = useQueryClient()
   return useMutation({
@@ -300,10 +308,17 @@ function useImageMutation<T, R>(fn: (vars: T) => Promise<R>) {
   })
 }
 
-export const useToggleFavorite = () =>
-  useImageMutation(({ id, favorite }: { id: string; favorite: boolean }) =>
-    api.patch<ImageItem>(`/images/${id}`, { favorite }),
-  )
+export function useToggleFavorite() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, favorite }: { id: string; favorite: boolean }) => api.patch<ImageItem>(`/images/${id}`, { favorite }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["images"] })
+      qc.invalidateQueries({ queryKey: ["image"] })
+      qc.invalidateQueries({ queryKey: ["preferences"] })
+    },
+  })
+}
 
 export const useSetPrimary = () =>
   useImageMutation(({ id, childId }: { id: string; childId: string | null }) =>
@@ -342,5 +357,32 @@ export function useDeleteChat() {
   return useMutation({
     mutationFn: (id: string) => api.del(`/chats/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.chats }),
+  })
+}
+
+// ── Learned preferences ────────────────────────────────────────────
+
+export const usePreferences = (chatId?: string | null) =>
+  useQuery({
+    queryKey: keys.preferences(chatId),
+    queryFn: () => api.get<PreferencesResponse>(`/preferences${chatId ? `?chat_id=${chatId}` : ""}`),
+  })
+
+export function useClearPreferences() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ chatId, global }: { chatId?: string | null; global?: boolean }) =>
+      api.del<PreferencesResponse>(global ? "/preferences?scope=global" : `/preferences?chat_id=${chatId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["preferences"] }),
+  })
+}
+
+/** Like, dislike or pick an image, or clear the reaction. The chat UI can call this. */
+export function useFeedback() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (b: { kind: "like" | "dislike" | "pick" | "clear"; image_id: string; chat_id?: string | null }) =>
+      api.post("/preferences/events", b),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["preferences"] }),
   })
 }
