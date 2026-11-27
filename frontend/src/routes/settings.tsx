@@ -155,6 +155,21 @@ function ChatCard({ s }: { s: Settings }) {
         <CardDescription>The model that runs the designer chat and writes prompt directions.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        <label className="flex items-start gap-2 text-xs">
+          <Switch
+            checked={s.ask_before_generating}
+            onCheckedChange={(v) => update.mutate({ ask_before_generating: v })}
+            className="mt-0.5"
+          />
+          <span>
+            Ask questions before generating
+            <span className="block text-muted-foreground">
+              Off (the default): the designer proposes directions and renders them right away with the image models you
+              picked, then asks a question or two you can ignore. On: it asks first and waits for you to press Generate.
+              Each chat can override this from its options menu.
+            </span>
+          </span>
+        </label>
         <div className="flex flex-col gap-1.5">
           <Label>Backend</Label>
           <Select value={s.llm_backend} onValueChange={(v) => update.mutate({ llm_backend: v as Settings["llm_backend"] })}>

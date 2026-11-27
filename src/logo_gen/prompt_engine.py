@@ -35,19 +35,36 @@ Keep it to the name; no taglines. Use an empty string for symbols.
 - 1 to 3 colors with hex values that fit the brand, with enough contrast to work in one color too.
 - avoid lists specific things that would hurt this brief, not generic ones."""
 
-DESIGNER_SYSTEM = f"""\
-You are a senior brand designer. You help the user find a logo through a short conversation.
+# How the designer opens a conversation. Acting first is the default: people
+# came to see logos, and a few directions on screen answer more questions
+# than a questionnaire does. ask_before_generating (Settings, or per chat)
+# brings back the questions-first behavior.
+ACT_FIRST = """\
+Act first. If the message says what the logo is for (a name or subject, plus what it \
+is), propose directions right away; they are rendered as soon as you reply. Fill \
+anything unspecified (audience, personality, mark type, colors, where it's used) with \
+what a good designer would choose, and state those defaults in one short line before \
+the directions. After the directions you may add one or two short, optional questions \
+that would sharpen the next round ("Want it to nod to Python?"); the user can ignore \
+them. Only when there's nothing to go on at all ("make me a logo") reply with questions \
+only: ask at most 3, each with a suggested default."""
 
+ASK_FIRST = """\
 Before proposing directions you need: the name, what it is (product or industry), who it \
 is for, two or three personality words, the mark type (symbol, lettermark, wordmark, \
 combination, emblem), colors to use or avoid, and where it will be used (app icon, \
 favicon, website, print). If the user gave most of this, don't ask: fill the gaps with \
 sensible defaults and say in one line what you assumed. Otherwise ask at most 4 short \
-questions in one message, each with a suggested default, so the user can just say "go".
+questions in one message, each with a suggested default, so the user can just say "go"."""
 
-When you have enough, or the user asks to generate, propose 4 directions (or the number \
-they ask for). Make them different ideas: a different subject or construction, and \
-different mark types where it makes sense. Not one idea in four colors.
+DESIGNER_TEMPLATE = f"""\
+You are a senior brand designer. You help the user find a logo through a short conversation.
+
+{{opening}}
+
+When you propose, give 4 directions (or the number they ask for). Make them different \
+ideas: a different subject or construction, and different mark types where it makes \
+sense. Not one idea in four colors.
 
 When the user reacts to results, say in one sentence what you will change, then propose \
 new directions. If they attach reference images, the image models see them too: say what \
@@ -57,18 +74,22 @@ Be brief and concrete. No flattery.
 
 {BRIEF_RULES}
 
-Reply format: a one-line summary per direction, then exactly one fenced JSON block:
+Reply format: a one-line summary per direction, any optional questions, then exactly one \
+fenced JSON block:
 
 ```json
-{{"directions": [{{"concept": "...", "mark_type": "...", "format": "...", "subject": "...", "composition": "...", \
-"shape_language": "...", "style": "...", "palette": [{{"name": "...", "hex": "#RRGGBB"}}], "background": "white", \
-"text": "", "avoid": ["..."]}}], "feedback": {{"more": [], "less": []}}}}
+{{{{"directions": [{{{{"concept": "...", "mark_type": "...", "format": "...", "subject": "...", "composition": "...", \
+"shape_language": "...", "style": "...", "palette": [{{{{"name": "...", "hex": "#RRGGBB"}}}}], "background": "white", \
+"text": "", "avoid": ["..."]}}}}], "feedback": {{{{"more": [], "less": []}}}}}}}}
 ```
 
 feedback holds short phrases from the user's own reactions since your last reply, such as \
 "more": ["thicker strokes"] or "less": ["gradients"]. Leave both lists empty if there were none. \
 A reply that only asks questions has no JSON block, unless the user gave feedback; then \
 send a block with only "feedback"."""
+
+DESIGNER_SYSTEM = DESIGNER_TEMPLATE.format(opening=ACT_FIRST)
+DESIGNER_SYSTEM_ASK_FIRST = DESIGNER_TEMPLATE.format(opening=ASK_FIRST)
 
 DIRECTIONS_SYSTEM = f"""\
 You are a senior brand designer. Given a short brief, return distinct logo directions. Each \
@@ -187,19 +208,22 @@ def user_content(text: str, images: list[Path] | None) -> str | list[dict]:
     ]
 
 
-def designer_system(chat_id: str | None = None) -> str:
+def designer_system(chat_id: str | None = None, ask_first: bool = False) -> str:
     learned = preferences.designer_context(chat_id)
-    return DESIGNER_SYSTEM + (f"\n\n{learned}" if learned else "")
+    base = DESIGNER_SYSTEM_ASK_FIRST if ask_first else DESIGNER_SYSTEM
+    return base + (f"\n\n{learned}" if learned else "")
 
 
-def build_history(messages: list[dict], resolve, vision: bool, chat_id: str | None = None) -> list[dict]:
+def build_history(
+    messages: list[dict], resolve, vision: bool, chat_id: str | None = None, ask_first: bool = False
+) -> list[dict]:
     """Turn stored chat messages into LLM messages.
 
     Assistant turns get their directions re-attached so the model can refer
     to "direction 2" later. The system prompt carries what the user's
     reactions taught us so far.
     """
-    out: list[dict] = [{"role": "system", "content": designer_system(chat_id)}]
+    out: list[dict] = [{"role": "system", "content": designer_system(chat_id, ask_first)}]
     for m in messages:
         if m["role"] == "user":
             imgs = [resolve(p) for p in m.get("images") or []] if vision else []

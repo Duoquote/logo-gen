@@ -113,8 +113,9 @@ async def _run(turn: Turn, history: list[dict]) -> None:
 
     try:
         vision = await prompt_engine.chat_supports_images()
+        ask_first = chats.asks_first(turn.chat_id)
         # The system prompt carries what this chat's reactions taught the designer.
-        messages = prompt_engine.build_history(history, paths.resolve_output, vision, chat_id=turn.chat_id)
+        messages = prompt_engine.build_history(history, paths.resolve_output, vision, chat_id=turn.chat_id, ask_first=ask_first)
         async for ev in prompt_engine.stream_reply(messages):
             kind = ev.get("type")
             if kind == "token":
@@ -134,6 +135,16 @@ async def _run(turn: Turn, history: list[dict]) -> None:
         if feedback:  # "more of / less of" phrases the designer pulled from the user's message
             prompt_engine.learn_from_reply(turn.chat_id, turn.content)
         shown = prompt_engine.strip_prompt_block(turn.content) if prompts or feedback else turn.content
+        if prompts and not ask_first:
+            # Act first: render the directions now, as a server job linked to this reply, so the
+            # images show up under it even if nobody is watching.
+            from logo_gen.server import auto_round
+
+            try:
+                line = await auto_round(turn.chat_id, turn.message_id, prompts, history)
+            except Exception as e:  # noqa: BLE001  (the reply itself is fine; say why nothing rendered)
+                line = f"Couldn't start rendering: {_error_text(e)} Press Generate to try again."
+            shown = f"{shown}\n\n_{line}_"
         turn.status = "done"
         chats.update_message(
             turn.message_id, content=shown, reasoning=turn.reasoning, prompts=prompts, status="done", finished_at=time.time()

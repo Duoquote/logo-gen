@@ -37,7 +37,18 @@ def get(chat_id: str, include_deleted: bool = False) -> dict | None:
         return None
     d = dict(rows[0])
     d["pinned"] = bool(d.get("pinned"))
+    d["ask_first"] = None if d.get("ask_first") is None else bool(d["ask_first"])
     return d
+
+
+def asks_first(chat_id: str) -> bool:
+    """Whether the designer asks questions before proposing and rendering, for this chat."""
+    from logo_gen.config import get_settings
+
+    chat = get(chat_id, include_deleted=True)
+    if chat and chat.get("ask_first") is not None:
+        return bool(chat["ask_first"])
+    return get_settings().ask_before_generating
 
 
 def auto_title(text: str) -> str:
@@ -117,7 +128,9 @@ def thumbnails(chat_ids: list[str]) -> dict[str, str]:
     return out
 
 
-def update(chat_id: str, title: str | None = None, pinned: bool | None = None) -> dict | None:
+def update(chat_id: str, title: str | None = None, pinned: bool | None = None, ask_first: bool | None = None) -> dict | None:
+    if ask_first is not None:
+        _x("UPDATE chats SET ask_first = ? WHERE id = ?", (int(ask_first), chat_id))
     if title is not None:
         _x("UPDATE chats SET title = ? WHERE id = ?", (title.strip()[:200], chat_id))
     if pinned is not None:

@@ -261,10 +261,12 @@ export function AssistantMessage({
 export function Directions({
   prompts,
   busy,
+  rendered = false,
   onGenerate,
 }: {
   prompts: Prompt[]
   busy: boolean
+  rendered?: boolean // a round for these directions already ran (or is running)
   onGenerate: (prompts: Prompt[], per: number) => void
 }) {
   const [selected, setSelected] = useState<Set<number>>(() => new Set(prompts.map((_, i) => i)))
@@ -313,7 +315,7 @@ export function Directions({
           onClick={() => onGenerate(prompts.filter((_, i) => selected.has(i)), per)}
         >
           {busy ? <Loader2Icon className="animate-spin" /> : <WandSparklesIcon />}
-          Generate {total || ""}
+          {rendered ? "Generate more" : "Generate"} {total || ""}
         </Button>
       </div>
     </div>
