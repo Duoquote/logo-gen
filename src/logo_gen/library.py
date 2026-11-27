@@ -195,6 +195,14 @@ def _migrate_chats(c: sqlite3.Connection) -> None:
     if "ask_first" not in _columns(c, "chats"):
         # Per-chat "ask questions before generating". NULL follows the setting.
         c.execute("ALTER TABLE chats ADD COLUMN ask_first INTEGER")
+    mcols = _columns(c, "messages")
+    if "note" not in mcols:
+        # The server's own line under a reply (what's rendering, or ready to), kept out of the
+        # text so the designer never sees it as something it said.
+        c.execute("ALTER TABLE messages ADD COLUMN note TEXT")
+    if "setup" not in mcols:
+        # The render setup the designer saw for this reply, to tell it what changed next time.
+        c.execute("ALTER TABLE messages ADD COLUMN setup TEXT")
     if "auto_generate" not in _columns(c, "chats"):
         # Per-chat "generate automatically". NULL follows the setting, which is off by default,
         # so chats from before the switch existed don't start spending on their own.

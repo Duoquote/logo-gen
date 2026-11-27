@@ -20,7 +20,7 @@ import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 
-from logo_gen import chats, library, paths, prompt_engine
+from logo_gen import designer_setup, chats, library, paths, prompt_engine
 from logo_gen.config import get_settings
 
 SAVE_EVERY = 0.5
@@ -114,8 +114,15 @@ async def _run(turn: Turn, history: list[dict]) -> None:
     try:
         vision = await prompt_engine.chat_supports_images()
         ask_first = chats.asks_first(turn.chat_id)
-        # The system prompt carries what this chat's reactions taught the designer.
-        messages = prompt_engine.build_history(history, paths.resolve_output, vision, chat_id=turn.chat_id, ask_first=ask_first)
+        # The setup is read now, not when the chat started: the user may have switched models or
+        # counts since the last reply, and the designer is told what changed.
+        setup = designer_setup.snapshot(turn.chat_id)
+        chats.update_message(turn.message_id, setup=setup)
+        # The system prompt carries what this chat's reactions taught the designer, and the setup.
+        messages = prompt_engine.build_history(
+            history, paths.resolve_output, vision, chat_id=turn.chat_id, ask_first=ask_first,
+            setup=designer_setup.describe(setup, designer_setup.previous(history)),
+        )
         async for ev in prompt_engine.stream_reply(messages):
             kind = ev.get("type")
             if kind == "token":
@@ -135,22 +142,28 @@ async def _run(turn: Turn, history: list[dict]) -> None:
         if feedback:  # "more of / less of" phrases the designer pulled from the user's message
             prompt_engine.learn_from_reply(turn.chat_id, turn.content)
         shown = prompt_engine.strip_prompt_block(turn.content) if prompts or feedback else turn.content
-        if prompts and chats.generates_automatically(turn.chat_id):
-            # "Generate automatically": render the directions now, as a server job linked to this
-            # reply, so the images show up under it even if nobody is watching. It's off by
-            # default; then the reply ends with the directions and waits for Generate.
-            from logo_gen.server import auto_round
+        # Whatever the model claims about rendering is dropped; the note below is the real status.
+        shown = prompt_engine.strip_render_claims(shown)
+        notes = []
+        switched = designer_setup.apply_render(prompt_engine.parse_render(turn.content))
+        if switched:
+            notes.append(switched)
+        if prompts:
+            # Worked out from the setup as it is now, when the reply ends. With "Generate
+            # automatically" on this starts the job; otherwise it says what Generate would make.
+            from logo_gen.server import reply_round
 
             try:
-                line = await auto_round(turn.chat_id, turn.message_id, prompts, history)
+                notes.append(await reply_round(turn.chat_id, turn.message_id, prompts, history))
             except Exception as e:  # noqa: BLE001  (the reply itself is fine; say why nothing rendered)
-                line = f"Couldn't start rendering: {_error_text(e)} Press Generate to try again."
-            shown = f"{shown}\n\n_{line}_"
+                notes.append(f"Couldn't start rendering: {_error_text(e)} Press Generate to try again.")
+        note = " ".join(notes)
         turn.status = "done"
         chats.update_message(
-            turn.message_id, content=shown, reasoning=turn.reasoning, prompts=prompts, status="done", finished_at=time.time()
+            turn.message_id, content=shown, reasoning=turn.reasoning, prompts=prompts, status="done", note=note,
+            finished_at=time.time(),
         )
-        turn.emit({"type": "done", "status": "done", "content": shown, "prompts": prompts})
+        turn.emit({"type": "done", "status": "done", "content": shown, "prompts": prompts, "note": note})
     except asyncio.CancelledError:
         turn.status = "stopped"
         chats.update_message(

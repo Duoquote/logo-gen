@@ -212,6 +212,7 @@ export function AssistantMessage({
     <div className="group/msg flex flex-col gap-2" aria-busy={streaming}>
       <Thinking text={reasoning} active={streaming && !text} />
       {text && <Markdown>{text}</Markdown>}
+      {!streaming && msg.note && <p className="text-xs text-muted-foreground italic">{msg.note}</p>}
       {streaming && !text && !reasoning && (
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Loader2Icon className="size-3.5 animate-spin" />

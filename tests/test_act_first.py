@@ -33,10 +33,16 @@ QUESTIONS = "What's the logo for? A name and one line about it is enough."
 def designer(home, monkeypatch):
     """A fake designer that proposes for a real brief and asks for an empty one, plus a fake image model."""
     seen_systems: list[str] = []
+    seen_messages: list[list[dict]] = []
+    replies: list[str] = []  # queued replies to send instead of the defaults
 
     async def stream_reply(messages):
         seen_systems.append(messages[0]["content"])
-        text = QUESTIONS if messages[-1]["content"].strip() == "make me a logo" else PROPOSAL
+        seen_messages.append(messages)
+        if replies:
+            text = replies.pop(0)
+        else:
+            text = QUESTIONS if messages[-1]["content"].strip() == "make me a logo" else PROPOSAL
         yield {"type": "token", "content": text}
 
     async def no_vision():
@@ -64,7 +70,7 @@ def designer(home, monkeypatch):
     monkeypatch.setattr(openrouter, "key_status", key_status)
     monkeypatch.setattr(server, "_usable", lambda m: not m.startswith("local/"))
     config.update_settings({"image_models": ["recraft/recraft-v4.1-flash"], "images_per_prompt": 1})
-    return {"systems": seen_systems, "rendered": rendered, "key": key}
+    return {"systems": seen_systems, "messages": seen_messages, "replies": replies, "rendered": rendered, "key": key}
 
 
 def client() -> httpx.AsyncClient:
@@ -97,7 +103,11 @@ def test_a_brief_gets_directions_right_away_and_waits_for_generate(designer):
             assert "Want it to nod to Python?" in reply["content"] and "```json" not in reply["content"]
             # Nothing renders by itself: no job, no spend line.
             assert view["jobs"] == [] and designer["rendered"] == []
-            assert "Rendering" not in reply["content"]
+            assert "Rendering" not in reply["content"] + reply["note"]
+            # The server says what Generate would make, from the setup as it is now.
+            assert reply["note"] == (
+                "Ready to render 2 images (2 on recraft-v4.1-flash, about $0.014). Press Generate when you're happy with them."
+            )
             assert "Act first" in designer["systems"][0]
             assert "rendered as soon as you reply" not in designer["systems"][0]
             # Each direction has one model-ready prompt to copy. Pasted into the Generate page with
@@ -116,7 +126,8 @@ def test_generate_automatically_renders_in_the_same_turn(designer):
             chat_id, view = await say(c, "An icon for polytini, a small Python library for polygon geometry.")
             reply = view["messages"][-1]
             assert len(reply["prompts"]) == 2
-            assert "Rendering 2 images now: 2 on recraft-v4.1-flash (about $0.014)" in reply["content"]
+            assert reply["note"] == "Rendering 2 images (2 on recraft-v4.1-flash, about $0.014) now."
+            assert "Rendering" not in reply["content"]
             assert "Want it to nod to Python?" in reply["content"] and "```json" not in reply["content"]
             # A real server job, linked to the reply, so the images land under it.
             assert [j["message_id"] for j in view["jobs"]] == [reply["id"]]
@@ -161,7 +172,7 @@ def test_ask_first_setting_and_per_chat_override(designer):
         async with client() as c:
             config.update_settings({"ask_before_generating": True})
             chat_id, view = await say(c, "An icon for polytini")
-            assert view["jobs"] == [] and "Rendering" not in view["messages"][-1]["content"]
+            assert view["jobs"] == [] and "Rendering" not in view["messages"][-1]["note"]
             assert "Before proposing directions you need" in designer["systems"][-1]
 
             # This chat says act first, whatever the setting says.
@@ -219,8 +230,8 @@ def test_the_round_respects_caps_and_counts(designer):
             _, view = await say(c, "An icon for polytini")
             # 2 directions x 3 would be 6; the cap of 4 leaves 2 per direction.
             assert designer["rendered"][0][2] == {"recraft/recraft-v4.1-flash": 4}
-            assert "Rendering 4 images" in view["messages"][-1]["content"]
-            assert "trimmed to the per-model caps" in view["messages"][-1]["content"]
+            assert "Rendering 4 images" in view["messages"][-1]["note"]
+            assert "trimmed to the per-model caps" in view["messages"][-1]["note"]
 
     asyncio.run(go())
 
@@ -232,7 +243,7 @@ def test_no_cloud_round_past_the_keys_spending_limit(designer):
             designer["key"]["limit_remaining"] = 0.005
             config.update_settings({"image_models": ["recraft/recraft-v4.1-flash", "local/zimage-turbo"]})
             _, view = await say(c, "An icon for polytini")
-            text = view["messages"][-1]["content"]
+            text = view["messages"][-1]["note"]
             assert view["jobs"] == [] and designer["rendered"] == []
             assert "the key has $0.005 left" in text and "zimage-turbo (not installed)" in text
             assert "Press Generate" in text

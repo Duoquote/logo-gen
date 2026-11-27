@@ -85,6 +85,9 @@ fenced JSON block:
 "text": "", "avoid": ["..."]}}}}], "feedback": {{{{"more": [], "less": []}}}}}}}}
 ```
 
+Don't write status lines about rendering, image counts or cost; the app adds the real one under \
+your reply.
+
 feedback holds short phrases from the user's own reactions since your last reply, such as \
 "more": ["thicker strokes"] or "less": ["gradients"]. Leave both lists empty if there were none. \
 A reply that only asks questions has no JSON block, unless the user gave feedback; then \
@@ -210,14 +213,37 @@ def user_content(text: str, images: list[Path] | None) -> str | list[dict]:
     ]
 
 
-def designer_system(chat_id: str | None = None, ask_first: bool = False) -> str:
+def designer_system(chat_id: str | None = None, ask_first: bool = False, setup: str = "") -> str:
     learned = preferences.designer_context(chat_id)
     base = DESIGNER_SYSTEM_ASK_FIRST if ask_first else DESIGNER_SYSTEM
-    return base + (f"\n\n{learned}" if learned else "")
+    return base + "".join(f"\n\n{part}" for part in (learned, setup) if part)
+
+
+# Status lines the server used to append to the reply text (and the model then copied). They
+# describe the setup at one moment, so they're dropped from the history and from new replies;
+# the real status lives in the message's `note`.
+_RENDER_CLAIM = re.compile(
+    r"^[ \t>]*[_*]*[ \t]*(?:Rendering \d+ images?\b|Ready to render \d+|Not rendering these automatically"
+    r"|Couldn't start rendering|Switched to .*, as you asked)[^\n]*(?:\n|$)",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+
+def strip_render_claims(text: str) -> str:
+    cleaned = _RENDER_CLAIM.sub("", text)
+    return cleaned.strip() if cleaned != text else text
+
+
+def parse_render(text: str) -> dict | None:
+    """The designer's request to switch image models or the count, from the reply's JSON block."""
+    for data in _blocks(text):
+        if isinstance(data.get("render"), dict):
+            return data["render"]
+    return None
 
 
 def build_history(
-    messages: list[dict], resolve, vision: bool, chat_id: str | None = None, ask_first: bool = False
+    messages: list[dict], resolve, vision: bool, chat_id: str | None = None, ask_first: bool = False, setup: str = ""
 ) -> list[dict]:
     """Turn stored chat messages into LLM messages.
 
@@ -225,7 +251,7 @@ def build_history(
     to "direction 2" later. The system prompt carries what the user's
     reactions taught us so far.
     """
-    out: list[dict] = [{"role": "system", "content": designer_system(chat_id, ask_first)}]
+    out: list[dict] = [{"role": "system", "content": designer_system(chat_id, ask_first, setup)}]
     for m in messages:
         if m["role"] == "user":
             imgs = [resolve(p) for p in m.get("images") or []] if vision else []
@@ -234,7 +260,7 @@ def build_history(
                 text += "\n\n(The user attached reference images, but this model cannot see images.)"
             out.append({"role": "user", "content": user_content(text, imgs)})
         else:
-            text = m["content"]
+            text = strip_render_claims(m["content"])
             if m.get("prompts"):
                 ps = m["prompts"]
                 block = (
