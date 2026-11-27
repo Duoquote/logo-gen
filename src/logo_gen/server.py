@@ -15,7 +15,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from logo_gen import chats, generator, library, paths, postprocess, prompt_engine, runtime, system, turns, upscaler
+from logo_gen import chats, generator, library, paths, postprocess, prompt_engine, rankings, runtime, system, turns, upscaler
 from logo_gen.clients import claude_cli, local_llm, openrouter
 from logo_gen.clients.local_llm import LocalLLMError
 from logo_gen.clients.openrouter import OpenRouterError
@@ -179,6 +179,41 @@ async def openrouter_key():
 async def openrouter_models(force: bool = False):
     data = await openrouter.catalog(force=force)
     return {"fetched_at": data["fetched_at"], "chat": data["chat"], "image": data["image"], "stale": data.get("stale", False)}
+
+
+@app.get("/api/models/rankings")
+async def model_rankings(refresh: bool = False):
+    """Quality (LMArena), value and popularity (OpenRouter usage) for every image model we can use."""
+    key = get_secret("OPENROUTER_KEY")
+    board, pop, notes = await rankings.data(key or None, refresh=refresh)
+    models: list[dict] = []
+    if key:
+        try:
+            cat = await openrouter.catalog()
+            models += [{"id": m["id"], "price": m.get("price_per_image")} for m in cat["image"]]
+        except OpenRouterError as e:
+            notes.append(f"No OpenRouter prices: {e.message}")
+    # Ranks count only what you can use now; models you haven't installed get their score but no rank.
+    usable = {mid for mid, spec in MODELS.items() if manager.is_installed(spec)}
+    models += [{"id": f"{generator.LOCAL_PREFIX}{mid}", "price": 0.0} for mid in usable]
+    ranked = rankings.rank_models(models, board, pop)
+    for mid in MODELS.keys() - usable:
+        ranked |= {k: v | {"rank": None, "value": None, "pareto": False}
+                   for k, v in rankings.rank_models([{"id": f"{generator.LOCAL_PREFIX}{mid}", "price": 0.0}], board, None).items()}
+    return {
+        "source": board["source"] | {"bundled": bool(board.get("bundled")), "fetched_at": board.get("fetched_at")},
+        "popularity": pop["source"] if pop else None,
+        "notes": notes,
+        "formula": {
+            "elo_per_doubling": rankings.ELO_PER_DOUBLING,
+            "price_ref": rankings.PRICE_REF,
+            "price_floor": rankings.PRICE_FLOOR,
+        },
+        "models": ranked,
+        "recent": [r["model"] for r in library._q(
+            "SELECT model, MAX(created_at) AS t FROM images WHERE kind = 'generated' AND model != '' GROUP BY model ORDER BY t DESC LIMIT 5"
+        )],
+    }
 
 
 @app.get("/api/llm/local")

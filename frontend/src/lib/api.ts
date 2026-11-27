@@ -54,6 +54,7 @@ export interface Settings {
   local_llm_api_key: string
   image_models: string[]
   images_per_prompt: number
+  image_sort: ImageSort
   variations: number
   aspect_ratio: string
   transparent_background: boolean
@@ -394,4 +395,32 @@ export function followReply(chatId: string, messageId: number, onEvent: (e: Repl
     if (ev.type === "end") es.close()
   }
   return () => es.close()
+}
+
+// ── Model rankings ─────────────────────────────────────────────────
+
+export type ImageSort = "quality" | "value" | "cheapest" | "popular" | "local" | "newest" | "name"
+
+export interface ModelRank {
+  ranked: boolean
+  leaderboard_name: string | null
+  category: "commercial_design" | "overall" | null
+  rating: number | null
+  ci: [number, number] | null
+  votes: number | null
+  arena_rank: number | null
+  price: number | null
+  value: number | null
+  pareto: boolean
+  rank: number | null
+  popularity_rank: number | null
+}
+
+export interface Rankings {
+  source: { name: string; url: string; dataset: string; license: string; published: string; bundled: boolean; fetched_at?: number }
+  popularity: { name: string; url: string; license: string; as_of: string; citation: string } | null
+  notes: string[]
+  formula: { elo_per_doubling: number; price_ref: number; price_floor: number }
+  models: Record<string, ModelRank>
+  recent: string[]
 }

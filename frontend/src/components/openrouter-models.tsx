@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Toggle } from "@/components/ui/toggle"
 import type { ChatModel, ImageModel } from "@/lib/api"
 import { formatContext, perMillion, timeAgo } from "@/lib/format"
+import { RankBadges, RankingSource, SortSelect } from "@/components/model-rank"
+import { sortModels, useRankings, type ModelEntry } from "@/lib/rankings"
 import { useCatalog, useRefreshCatalog, useSettings, useUpdateSettings } from "@/lib/queries"
 
 type Sort = "price" | "name" | "newest" | "context"
@@ -37,12 +39,14 @@ function Toolbar({
   count,
   total,
   extra,
+  sortControl,
 }: {
   f: ReturnType<typeof useFilters>
   providers: string[]
   count: number
   total: number
   extra?: React.ReactNode
+  sortControl?: React.ReactNode
 }) {
   const catalog = useCatalog()
   const refresh = useRefreshCatalog()
@@ -67,7 +71,7 @@ function Toolbar({
           ))}
         </SelectContent>
       </Select>
-      <Select value={f.sort} onValueChange={(v) => f.setSort(v as Sort)}>
+      {sortControl ?? <Select value={f.sort} onValueChange={(v) => f.setSort(v as Sort)}>
         <SelectTrigger className="w-36">
           <SelectValue />
         </SelectTrigger>
@@ -77,7 +81,7 @@ function Toolbar({
           <SelectItem value="name">Name</SelectItem>
           <SelectItem value="context">Largest context</SelectItem>
         </SelectContent>
-      </Select>
+      </Select>}
       <Toggle variant="outline" size="sm" pressed={f.freeOnly} onPressedChange={f.setFreeOnly}>
         Free only
       </Toggle>
@@ -156,6 +160,7 @@ function ChatModelsInner() {
         providers={providers}
         count={rows.length}
         total={all.length}
+        sortControl={<SortSelect extra />}
         extra={
           <Toggle variant="outline" size="sm" pressed={vision} onPressedChange={setVision}>
             Sees images
@@ -202,20 +207,23 @@ function ImageModelsInner() {
   const [feature, setFeature] = useState("any")
   const all = useMemo(() => catalog.data?.image ?? [], [catalog.data])
   const providers = useMemo(() => [...new Set(all.map((m) => m.provider))].sort(), [all])
-  const rows = sortBy(
-    all.filter(
-      (m) =>
-        matches(m, f) &&
-        (feature === "any" ||
-          (feature === "svg" && m.vector) ||
-          (feature === "transparent" && m.supports_transparent) ||
-          (feature === "references" && m.supports_references) ||
-          (feature === "seed" && m.supports_seed)),
-    ),
-    f.sort,
-    (m) => m.price_per_image ?? 99,
-    () => 0,
+  const rankings = useRankings()
+  const sort = settings.data?.settings.image_sort ?? "quality"
+  const filtered = all.filter(
+    (m) =>
+      matches(m, f) &&
+      (feature === "any" ||
+        (feature === "svg" && m.vector) ||
+        (feature === "transparent" && m.supports_transparent) ||
+        (feature === "references" && m.supports_references) ||
+        (feature === "seed" && m.supports_seed)),
   )
+  const byId = new Map(filtered.map((m) => [m.id, m]))
+  const rows = sortModels(
+    filtered.map((m) => ({ id: m.id, name: m.name, price: m.price_per_image, priceUnit: m.price_unit, local: false, created: m.created })),
+    sort,
+    rankings.data,
+  ).map((e) => ({ m: byId.get(e.id)!, e }))
   const selected = settings.data?.settings.image_models ?? []
   const toggle = (id: string) =>
     update.mutate({ image_models: selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id] })
@@ -227,6 +235,7 @@ function ImageModelsInner() {
         providers={providers}
         count={rows.length}
         total={all.length}
+        sortControl={<SortSelect extra />}
         extra={
           <Select value={feature} onValueChange={setFeature}>
             <SelectTrigger className="w-44">
@@ -243,10 +252,11 @@ function ImageModelsInner() {
         }
       />
       <ModelTable
-        head={["Model", "Provider", "Price", "Features", "Modalities", ""]}
-        rows={rows.map((m: ImageModel) => [
+        head={["Model", "Provider", "Quality", "Price", "Features", "Modalities", ""]}
+        rows={rows.map(({ m, e }: { m: ImageModel; e: ModelEntry }) => [
           <ModelName key="n" name={m.name} id={m.id} />,
           m.provider,
+          <QualityCell key="q" e={e} />,
           <span key="p" title={m.price_unit === "token" ? "Priced per output token; estimate for a 1024 px image" : undefined}>
             {imagePriceLabel(m.price_per_image, m.price_unit) || "n/a"}
           </span>,
@@ -264,6 +274,7 @@ function ImageModelsInner() {
           </Button>,
         ])}
       />
+      <RankingSource />
     </div>
   )
 }
@@ -318,3 +329,21 @@ function ModelTable({ head, rows }: { head: string[]; rows: React.ReactNode[][] 
     </div>
   )
 }
+
+function QualityCell({ e }: { e: ModelEntry }) {
+  const r = useRankings().data
+  const k = r?.models[e.id]
+  if (!r) return null
+  return (
+    <span className="flex flex-col gap-0.5">
+      <RankBadges m={e} r={r} hidePrice />
+      {k?.ranked && (
+        <span className="text-[11px] text-muted-foreground tabular-nums">
+          {Math.round(k.rating!)} {k.category === "commercial_design" ? "design" : "overall"}
+          {k.popularity_rank && ` · popular #${k.popularity_rank}`}
+        </span>
+      )}
+    </span>
+  )
+}
+
