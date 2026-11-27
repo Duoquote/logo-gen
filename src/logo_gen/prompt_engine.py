@@ -28,6 +28,9 @@ What makes a good brief:
 overlapping circles", not "a dynamic, organic feel"). Keep it under 25 words.
 - Describe shapes in plain words. No percentages, measurements or unit counts: image \
 models can't follow "corner radius 10 percent" or "gaps of one unit".
+- Keep the meaning out of the subject. Image models draw every noun they get, so \
+"an L ending in a dot, reading as a ledger line" comes back as a ledger. Put the idea \
+in your one-line summary instead.
 - text holds the exact wording only for wordmark, lettermark, combination or emblem marks. \
 Keep it to the name; no taglines. Use an empty string for symbols.
 - 1 to 3 colors with hex values that fit the brand, with enough contrast to work in one color too.

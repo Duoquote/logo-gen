@@ -17,7 +17,7 @@ code. Every renderer:
 from __future__ import annotations
 
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 
 from logo_gen.prompting import brief as briefs
 from logo_gen.prompting.brief import Brief
@@ -100,6 +100,21 @@ _NAMED = {
     "purple": (120, 60, 170), "pink": (230, 110, 170), "brown": (120, 75, 40), "beige": (225, 205, 170),
     "cream": (245, 235, 210), "maroon": (110, 25, 35), "olive": (110, 120, 40), "mint": (150, 220, 190),
 }
+
+
+# "..., reading as a drone capture footprint", "..., the small wedge standing for taxes".
+# Image models draw every noun they get, so the meaning has to stay out of the prompt.
+_MEANING = re.compile(
+    r"[,;]\s*(?:[\w\s-]{0,30}?\s)?(?:reading|standing|stands|representing|represents|symbolizing|symbolising|"
+    r"suggesting|suggests|evoking|evokes|signifying|hinting|alluding|referencing|a nod|a metaphor|as if)\b[^,;]*",
+    re.I,
+)
+
+
+def drawable(subject: str) -> str:
+    """The subject without clauses that explain what it means."""
+    out = _MEANING.sub("", subject or "").strip(" ,;.")
+    return out or (subject or "").strip()
 
 
 def _rgb(hex_value: str) -> tuple[int, int, int] | None:
@@ -520,6 +535,7 @@ def render(
     if isinstance(b, dict):
         b = briefs.from_dict(b)
     p = profile_for(model)
+    b = replace(b, subject=drawable(b.subject))
     clear = (transparent or b.wants_transparent) and _can_clear(model, info)
     prompt, negative, notes = RENDERERS[p.style](b, p, clear, list(extra_avoid or []))
     params = local_params(p) if _is_local(model) else cloud_params(p, info, clear, b)

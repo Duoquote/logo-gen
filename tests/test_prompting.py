@@ -364,3 +364,12 @@ def test_global_taste_can_be_turned_off(settings, tmp_path, monkeypatch):
     preferences.apply_event(preferences.FeedbackEvent("like", img["id"]))
     assert preferences.profile("global")["empty"]
     assert not preferences.profile("chat:c1")["empty"]
+
+
+def test_meaning_clauses_stay_out_of_image_prompts():
+    """The eval drew a drone photo for 'a grid ..., reading as a drone capture footprint'."""
+    b = BRIEFS["geo-saas"] | {"subject": "a square split into four cells, one filled, reading as a drone capture footprint"}
+    for m in MODELS:
+        assert "drone" not in render.render(b, m, INFO.get(m)).prompt
+    assert render.drawable("a leaf shaped like a heart") == "a leaf shaped like a heart"
+    assert render.drawable("a wedge pulled out, the small wedge standing for taxes") == "a wedge pulled out"
