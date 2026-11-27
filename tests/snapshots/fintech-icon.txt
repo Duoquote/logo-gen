@@ -1,0 +1,49 @@
+## openai/gpt-image-1-mini [gpt-image, structured]
+Design an app icon, an original mark.
+Subject: three stacked rounded bars forming an upward arrow.
+Style: flat vector; bold geometric, rounded corners; few, bold shapes; matte flat colors. Clean vector-like shapes, a strong silhouette, balanced negative space.
+Colors: electric indigo #4F46E5 and white #FFFFFF only.
+Composition: centered inside a rounded square tile; a single mark, centered, generous even padding, nothing else in frame.
+Background: transparent.
+Text: none. No text, letters or numbers anywhere.
+Constraints: No fine detail, no gloss.
+It must read clearly at 32 px, so keep the shapes bold and the details few.
+PARAMS: {"background": "transparent", "output_format": "png", "quality": "medium"}
+
+## google/gemini-2.5-flash-image [gemini-image, natural]
+A flat vector app icon of three stacked rounded bars forming an upward arrow. Bold geometric, rounded corners. Main shapes in electric indigo #4F46E5, accents in white #FFFFFF. Few, bold shapes, matte flat colors. Centered inside a rounded square tile. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. The mark is a pure pictorial symbol.
+NOTE: This model has no transparent output, so it gets a plain background. Remove it afterwards.
+
+## recraft/recraft-v4.1-flash [recraft, recraft]
+Flat vector app icon of three stacked rounded bars forming an upward arrow. Bold geometric, rounded corners. Main shapes in electric indigo #4F46E5, accents in white #FFFFFF. Flat colors only, one unified silhouette, no gradients, no shadows, no texture, no fine detail, no gloss. Centered inside a rounded square tile. A single mark with generous even padding, on a plain white background, nothing else in frame. No text.
+PARAMS: {"provider": {"options": {"recraft": {"controls": {"background_color": {"rgb": [255, 255, 255]}, "colors": [{"rgb": [79, 70, 229]}, {"rgb": [255, 255, 255]}]}}}}}
+NOTE: This model has no transparent output, so it gets a plain background. Remove it afterwards.
+
+## black-forest-labs/flux.2-klein-4b [flux-2-klein, natural]
+A flat vector app icon of three stacked rounded bars forming an upward arrow. Bold geometric, rounded corners. Main shapes in electric indigo #4F46E5, accents in white #FFFFFF. Few, bold shapes, matte flat colors. Centered inside a rounded square tile. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No text, no fine detail, no gloss.
+PARAMS: {"output_format": "png"}
+NOTE: This model has no transparent output, so it gets a plain background. Remove it afterwards.
+
+## black-forest-labs/flux-3-image-klein [flux-3, natural]
+A flat-color graphic app icon of three stacked rounded bars forming an upward arrow. Bold geometric, rounded corners. Main shapes in electric indigo #4F46E5, accents in white #FFFFFF. Few, bold shapes, matte flat colors. Centered inside a rounded square tile. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. Symbol only.
+PARAMS: {"provider": {"options": {"black-forest-labs": {"grounding": false}}}}
+NOTE: This model has no transparent output, so it gets a plain background. Remove it afterwards.
+
+## bytedance-seed/seedream-5-5 [seedream, natural]
+A flat vector app icon of three stacked rounded bars forming an upward arrow. Bold geometric, rounded corners. Main shapes in electric indigo #4F46E5, accents in white #FFFFFF. Few, bold shapes, matte flat colors. Centered inside a rounded square tile. A single mark with generous even padding, on a transparent background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No text, no fine detail, no gloss.
+PARAMS: {"background": "transparent", "output_format": "png", "resolution": "1K"}
+
+## local/zimage-turbo [z-image-turbo, natural]
+A flat vector app icon of three stacked rounded bars forming an upward arrow. Bold geometric, rounded corners. Main shapes in electric indigo #4F46E5, accents in white #FFFFFF. Few, bold shapes, matte flat colors. Centered inside a rounded square tile. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No text, no fine detail, no gloss.
+PARAMS: {"guidance": 0.0, "steps": 9}
+NOTE: This model has no transparent output, so it gets a plain background. Remove it afterwards.
+
+## local/sd-turbo [sd-turbo, keywords]
+flat vector app icon, three stacked rounded bars forming upward arrow, indigo and white, flat vector, bold geometric, few, bold shapes, white background, centered, simple
+PARAMS: {"guidance": 0.0, "steps": 2}
+NOTE: This model has no transparent output, so it gets a plain background. Remove it afterwards.
+
+## someone/illustrious-xl-v2 [booru-tags, tags]
+masterpiece, best quality, logo, symbol, flat color, vector, simple background, white background, no humans, three stacked rounded bars forming upward arrow, indigo theme, white theme, limited palette, centered
+NEGATIVE: worst quality, low quality, lowres, text, signature, watermark, jpeg artifacts, photorealistic, 3d, gradient background, fine detail, gloss
+NOTE: This model has no transparent output, so it gets a plain background. Remove it afterwards.

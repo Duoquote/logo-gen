@@ -1,0 +1,1558 @@
+{
+  "geo-saas": {
+    "old": {
+      "recraft/recraft-v4.1-flash": [
+        {
+          "concept": "Stacked terrain layers",
+          "path": "generated/recraft-recraft-v4-1-flash_1795766694272_6484aa.png",
+          "prompt": "Flat geometric vector logo mark of three stacked parallelogram slabs in an isometric offset, each slab slightly narrower than the one below, forming a stepped terrain block that suggests layered map data. The top slab is deep teal #0F766E, the middle slab slate #334155, and the base slab pale mint #99F6E4, with equal gaps between them. Centered on a plain white background with generous padding, no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Four-tile city plan with one lifted parcel",
+          "path": "generated/recraft-recraft-v4-1-flash_1795766694205_c62904.png",
+          "prompt": "Negative space logo mark of a rounded square split into a two-by-two arrangement of tiles separated by thin white gutters, with the bottom-right tile pulled diagonally outward to read as a selected parcel on a city plan. The square is ink navy #1E3A5F and the lifted tile is bright cyan #06B6D4. Centered on a plain white background with generous padding, no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Contour peak around a survey point",
+          "path": "generated/recraft-recraft-v4-1-flash_1795766694944_66e4e1.png",
+          "prompt": "Line mark of three nested contour loops drawn as uneven rounded triangles that tighten toward a single solid dot, like a topographic peak on a survey map. The loops use an even heavy stroke in deep teal #0F766E and the center dot is amber #F59E0B. Centered on a plain white background with generous padding, no text.",
+          "params": {},
+          "error": null
+        }
+      ],
+      "black-forest-labs/flux.2-klein-4b": [
+        {
+          "concept": "Stacked terrain layers",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795766700677_06a846.png",
+          "prompt": "Flat geometric vector logo mark of three stacked parallelogram slabs in an isometric offset, each slab slightly narrower than the one below, forming a stepped terrain block that suggests layered map data. The top slab is deep teal #0F766E, the middle slab slate #334155, and the base slab pale mint #99F6E4, with equal gaps between them. Centered on a plain white background with generous padding, no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Four-tile city plan with one lifted parcel",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795766701025_be74d0.png",
+          "prompt": "Negative space logo mark of a rounded square split into a two-by-two arrangement of tiles separated by thin white gutters, with the bottom-right tile pulled diagonally outward to read as a selected parcel on a city plan. The square is ink navy #1E3A5F and the lifted tile is bright cyan #06B6D4. Centered on a plain white background with generous padding, no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Contour peak around a survey point",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795766700722_256a48.png",
+          "prompt": "Line mark of three nested contour loops drawn as uneven rounded triangles that tighten toward a single solid dot, like a topographic peak on a survey map. The loops use an even heavy stroke in deep teal #0F766E and the center dot is amber #F59E0B. Centered on a plain white background with generous padding, no text.",
+          "params": {},
+          "error": null
+        }
+      ],
+      "google/gemini-2.5-flash-image": [
+        {
+          "concept": "Stacked terrain layers",
+          "path": "generated/google-gemini-2-5-flash-image_1795766706881_9f662d.png",
+          "prompt": "Flat geometric vector logo mark of three stacked parallelogram slabs in an isometric offset, each slab slightly narrower than the one below, forming a stepped terrain block that suggests layered map data. The top slab is deep teal #0F766E, the middle slab slate #334155, and the base slab pale mint #99F6E4, with equal gaps between them. Centered on a plain white background with generous padding, no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Four-tile city plan with one lifted parcel",
+          "path": "generated/google-gemini-2-5-flash-image_1795766707070_bf4d6d.png",
+          "prompt": "Negative space logo mark of a rounded square split into a two-by-two arrangement of tiles separated by thin white gutters, with the bottom-right tile pulled diagonally outward to read as a selected parcel on a city plan. The square is ink navy #1E3A5F and the lifted tile is bright cyan #06B6D4. Centered on a plain white background with generous padding, no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Contour peak around a survey point",
+          "path": "generated/google-gemini-2-5-flash-image_1795766707724_f9e880.png",
+          "prompt": "Line mark of three nested contour loops drawn as uneven rounded triangles that tighten toward a single solid dot, like a topographic peak on a survey map. The loops use an even heavy stroke in deep teal #0F766E and the center dot is amber #F59E0B. Centered on a plain white background with generous padding, no text.",
+          "params": {},
+          "error": null
+        }
+      ],
+      "local/zimage-turbo": [
+        {
+          "concept": "Stacked terrain layers",
+          "path": "generated/local-zimage-turbo_1795766826422_b62152.png",
+          "prompt": "Flat geometric vector logo mark of three stacked parallelogram slabs in an isometric offset, each slab slightly narrower than the one below, forming a stepped terrain block that suggests layered map data. The top slab is deep teal #0F766E, the middle slab slate #334155, and the base slab pale mint #99F6E4, with equal gaps between them. Centered on a plain white background with generous padding, no text. Centered on a plain white background, flat vector logo icon, no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Four-tile city plan with one lifted parcel",
+          "path": "generated/local-zimage-turbo_1795766826579_462800.png",
+          "prompt": "Negative space logo mark of a rounded square split into a two-by-two arrangement of tiles separated by thin white gutters, with the bottom-right tile pulled diagonally outward to read as a selected parcel on a city plan. The square is ink navy #1E3A5F and the lifted tile is bright cyan #06B6D4. Centered on a plain white background with generous padding, no text. Centered on a plain white background, flat vector logo icon, no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Contour peak around a survey point",
+          "path": "generated/local-zimage-turbo_1795766858740_d706c7.png",
+          "prompt": "Line mark of three nested contour loops drawn as uneven rounded triangles that tighten toward a single solid dot, like a topographic peak on a survey map. The loops use an even heavy stroke in deep teal #0F766E and the center dot is amber #F59E0B. Centered on a plain white background with generous padding, no text. Centered on a plain white background, flat vector logo icon, no text.",
+          "params": {},
+          "error": null
+        }
+      ]
+    },
+    "new": {
+      "recraft/recraft-v4.1-flash": [
+        {
+          "concept": "Stacked Map Layers",
+          "path": "generated/recraft-recraft-v4-1-flash_1795766861715_fe0a5c.png",
+          "prompt": "Flat vector app icon of three isometric rounded rhombus slabs stacked vertically, each offset one step to the right, with a single small square cutout at the center of the top slab. Main shapes in Survey Teal #0B5563, accents in Contour Green #2BAF7E. Flat colors only, one unified silhouette, no gradients, no shadows, no texture, no drop shadows, no 3d lighting. A single mark with generous even padding, on a solid #F4F7F6 background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          11,
+                          85,
+                          99
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          43,
+                          175,
+                          126
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        244,
+                        247,
+                        246
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        },
+        {
+          "concept": "Contour Benchmark Rings",
+          "path": "generated/recraft-recraft-v4-1-flash_1795766861690_f1c845.png",
+          "prompt": "Flat vector abstract logo mark of three concentric open rings, each broken by a gap at the upper right, surrounding a solid square at the center like contour lines around a survey benchmark. Main shapes in Ink Navy #1B2A41, accents in Survey Orange #E8833A. Flat colors only, one unified silhouette, no gradients, no shadows, no texture, no filled rings, no more than three rings. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          27,
+                          42,
+                          65
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          232,
+                          131,
+                          58
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        255,
+                        255,
+                        255
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        },
+        {
+          "concept": "Quadrant Footprint Square",
+          "path": "generated/recraft-recraft-v4-1-flash_1795766861536_5f689e.png",
+          "prompt": "Flat vector logo symbol, bold enough to read at 16 px of a square outline divided into a two by two grid with only the top left cell filled solid, reading as a drone capture footprint over one map tile. Main shapes in Survey Teal #0B5563, accents in Mist Teal #A8D5CC. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          11,
+                          85,
+                          99
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          168,
+                          213,
+                          204
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        }
+      ],
+      "black-forest-labs/flux.2-klein-4b": [
+        {
+          "concept": "Stacked Map Layers",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795766867264_a3d84b.png",
+          "prompt": "A flat vector app icon of three isometric rounded rhombus slabs stacked vertically, each offset one step to the right, with a single small square cutout at the center of the top slab. Main shapes in Survey Teal #0B5563, accents in Contour Green #2BAF7E. A single mark with generous even padding, on a solid #F4F7F6 background, nothing else in frame. No text, no gradients, no drop shadows.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        },
+        {
+          "concept": "Contour Benchmark Rings",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795766868462_3613da.png",
+          "prompt": "A flat vector abstract logo mark of three concentric open rings, each broken by a gap at the upper right, surrounding a solid square at the center like contour lines around a survey benchmark. Main shapes in Ink Navy #1B2A41, accents in Survey Orange #E8833A. A single mark with generous even padding, on a plain white background, nothing else in frame. No text, no gradients, no filled rings.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        },
+        {
+          "concept": "Quadrant Footprint Square",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795766868730_b987ca.png",
+          "prompt": "A flat vector logo symbol, bold enough to read at 16 px of a square outline divided into a two by two grid with only the top left cell filled solid, reading as a drone capture footprint over one map tile. Main shapes in Survey Teal #0B5563, accents in Mist Teal #A8D5CC. A single mark with generous even padding, on a plain white background, nothing else in frame. No text, no thin grid lines, no more than four cells.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        }
+      ],
+      "google/gemini-2.5-flash-image": [
+        {
+          "concept": "Stacked Map Layers",
+          "path": "generated/google-gemini-2-5-flash-image_1795766875022_b5144a.png",
+          "prompt": "A flat vector app icon of three isometric rounded rhombus slabs stacked vertically, each offset one step to the right, with a single small square cutout at the center of the top slab. Two tones, rounded geometric, corner radius about 10 percent of slab width, flat straight edges, gaps of one unit between slabs. Main shapes in Survey Teal #0B5563, accents in Contour Green #2BAF7E. Flat solid colors, flat fills, flat 2D, matte flat colors. A single mark with generous even padding, on a solid #F4F7F6 background, nothing else in frame.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Contour Benchmark Rings",
+          "path": "generated/google-gemini-2-5-flash-image_1795766875660_c9e4f1.png",
+          "prompt": "A flat vector abstract logo mark of three concentric open rings, each broken by a gap at the upper right, surrounding a solid square at the center like contour lines around a survey benchmark. Two colors, circular arcs with flat-cut ends, uniform stroke about 6 percent of canvas width, sharp-cornered center square. Main shapes in Ink Navy #1B2A41, accents in Survey Orange #E8833A. Flat solid colors. Centered on a square canvas, symmetric about the vertical axis, clear space of one ring width on every side, exactly four elements. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Quadrant Footprint Square",
+          "path": "generated/google-gemini-2-5-flash-image_1795766875719_933d51.png",
+          "prompt": "A flat vector logo symbol, bold enough to read at 16 px of a square outline divided into a two by two grid with only the top left cell filled solid, reading as a drone capture footprint over one map tile. Two tones, sharp-cornered geometric, grid lines at least one twelfth of the square width, no curves. Main shapes in Survey Teal #0B5563, accents in Mist Teal #A8D5CC. Flat solid colors. Single centered square filling about 80 percent of the canvas, four equal cells, no padding beyond 10 percent per side. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {},
+          "error": null
+        }
+      ],
+      "local/zimage-turbo": [
+        {
+          "concept": "Stacked Map Layers",
+          "path": "generated/local-zimage-turbo_1795766905736_1bc82d.png",
+          "prompt": "A flat vector app icon of three isometric rounded rhombus slabs stacked vertically, each offset one step to the right, with a single small square cutout at the center of the top slab. Two tones, rounded geometric, corner radius about 10 percent of slab width, flat straight edges, gaps of one unit between slabs. Main shapes in Survey Teal #0B5563, accents in Contour Green #2BAF7E. Flat solid colors, flat fills, flat 2D, matte flat colors. A single mark with generous even padding, on a solid #F4F7F6 background, nothing else in frame. No text, no gradients, no drop shadows.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Contour Benchmark Rings",
+          "path": "generated/local-zimage-turbo_1795766905912_56253e.png",
+          "prompt": "A flat vector abstract logo mark of three concentric open rings, each broken by a gap at the upper right, surrounding a solid square at the center like contour lines around a survey benchmark. Two colors, circular arcs with flat-cut ends, uniform stroke about 6 percent of canvas width, sharp-cornered center square. Main shapes in Ink Navy #1B2A41, accents in Survey Orange #E8833A. Flat solid colors. Centered on a square canvas, symmetric about the vertical axis, clear space of one ring width on every side, exactly four elements. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No text, no gradients, no filled rings.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Quadrant Footprint Square",
+          "path": "generated/local-zimage-turbo_1795766922841_240434.png",
+          "prompt": "A flat vector logo symbol, bold enough to read at 16 px of a square outline divided into a two by two grid with only the top left cell filled solid, reading as a drone capture footprint over one map tile. Two tones, sharp-cornered geometric, grid lines at least one twelfth of the square width, no curves. Main shapes in Survey Teal #0B5563, accents in Mist Teal #A8D5CC. Flat solid colors. Single centered square filling about 80 percent of the canvas, four equal cells, no padding beyond 10 percent per side. A single mark with generous even padding, on a plain white background, nothing else in frame. No text, no thin grid lines, no more than four cells.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        }
+      ]
+    },
+    "new2": {
+      "recraft/recraft-v4.1-flash": [
+        {
+          "concept": "Stacked Map Layers",
+          "path": "generated/recraft-recraft-v4-1-flash_1795767331568_a1f5a2.png",
+          "prompt": "Flat vector app icon of three isometric rounded rhombus slabs stacked vertically, each offset one step to the right, with a single small square cutout at the center of the top slab. Main shapes in Survey Teal #0B5563, accents in Contour Green #2BAF7E. Flat colors only, one unified silhouette, no gradients, no shadows, no texture, no drop shadows, no 3d lighting. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          11,
+                          85,
+                          99
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          43,
+                          175,
+                          126
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        255,
+                        255,
+                        255
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        },
+        {
+          "concept": "Contour Benchmark Rings",
+          "path": "generated/recraft-recraft-v4-1-flash_1795767331739_e51b50.png",
+          "prompt": "Flat vector abstract logo mark of three concentric open rings, each broken by a gap at the upper right, surrounding a solid square at the center like contour lines around a survey benchmark. Main shapes in Ink Navy #1B2A41, accents in Survey Orange #E8833A. Flat colors only, one unified silhouette, no gradients, no shadows, no texture, no filled rings, no more than three rings. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          27,
+                          42,
+                          65
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          232,
+                          131,
+                          58
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        255,
+                        255,
+                        255
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        },
+        {
+          "concept": "Quadrant Footprint Square",
+          "path": "generated/recraft-recraft-v4-1-flash_1795767331732_fc5455.png",
+          "prompt": "Flat vector logo symbol, bold enough to read at 16 px of a square outline divided into a two by two grid with only the top left cell filled solid, reading as a drone capture footprint over one map tile. Main shapes in Survey Teal #0B5563, accents in Mist Teal #A8D5CC. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          11,
+                          85,
+                          99
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          168,
+                          213,
+                          204
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        255,
+                        255,
+                        255
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        }
+      ],
+      "black-forest-labs/flux.2-klein-4b": [
+        {
+          "concept": "Stacked Map Layers",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795767338337_c6a158.png",
+          "prompt": "A flat vector app icon of three isometric rounded rhombus slabs stacked vertically, each offset one step to the right, with a single small square cutout at the center of the top slab. Main shapes in Survey Teal #0B5563, accents in Contour Green #2BAF7E. A single mark with generous even padding, on a plain white background, nothing else in frame. No text, no gradients, no drop shadows.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        },
+        {
+          "concept": "Contour Benchmark Rings",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795767338506_ffd28e.png",
+          "prompt": "A flat vector abstract logo mark of three concentric open rings, each broken by a gap at the upper right, surrounding a solid square at the center like contour lines around a survey benchmark. Main shapes in Ink Navy #1B2A41, accents in Survey Orange #E8833A. A single mark with generous even padding, on a plain white background, nothing else in frame. No text, no gradients, no filled rings.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        },
+        {
+          "concept": "Quadrant Footprint Square",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795767338124_1e5eef.png",
+          "prompt": "A flat vector logo symbol, bold enough to read at 16 px of a square outline divided into a two by two grid with only the top left cell filled solid, reading as a drone capture footprint over one map tile. Main shapes in Survey Teal #0B5563, accents in Mist Teal #A8D5CC. A single mark with generous even padding, on a plain white background, nothing else in frame. No text, no thin grid lines, no more than four cells.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        }
+      ],
+      "local/zimage-turbo": [
+        {
+          "concept": "Stacked Map Layers",
+          "path": "generated/local-zimage-turbo_1795768268781_5fc50a.png",
+          "prompt": "A flat vector app icon of three isometric rounded rhombus slabs stacked vertically, each offset one step to the right, with a single small square cutout at the center of the top slab. Two tones, rounded geometric, corner radius about 10 percent of slab width, flat straight edges, gaps of one unit between slabs. Main shapes in Survey Teal #0B5563, accents in Contour Green #2BAF7E. Flat solid colors. Centered in a rounded-square app tile, one element filling about 70 percent of tile width, equal padding on all sides, no secondary elements. A single mark with generous even padding, on a plain white background, nothing else in frame. No text, no gradients, no drop shadows.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Contour Benchmark Rings",
+          "path": "generated/local-zimage-turbo_1795768287070_61b894.png",
+          "prompt": "A flat vector abstract logo mark of three concentric open rings, each broken by a gap at the upper right, surrounding a solid square at the center like contour lines around a survey benchmark. Two colors, circular arcs with flat-cut ends, uniform stroke about 6 percent of canvas width, sharp-cornered center square. Main shapes in Ink Navy #1B2A41, accents in Survey Orange #E8833A. Flat solid colors. Centered on a square canvas, symmetric about the vertical axis, clear space of one ring width on every side, exactly four elements. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No text, no gradients, no filled rings.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Quadrant Footprint Square",
+          "path": "generated/local-zimage-turbo_1795768305409_a5b8dc.png",
+          "prompt": "A flat vector logo symbol, bold enough to read at 16 px of a square outline divided into a two by two grid with only the top left cell filled solid, reading as a drone capture footprint over one map tile. Two tones, sharp-cornered geometric, grid lines at least one twelfth of the square width, no curves. Main shapes in Survey Teal #0B5563, accents in Mist Teal #A8D5CC. Flat solid colors. Single centered square filling about 80 percent of the canvas, four equal cells, no padding beyond 10 percent per side. A single mark with generous even padding, on a plain white background, nothing else in frame. No text, no thin grid lines, no more than four cells.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        }
+      ]
+    },
+    "new3": {
+      "local/zimage-turbo": [
+        {
+          "concept": "Stacked Map Layers",
+          "path": "generated/local-zimage-turbo_1795768561003_705624.png",
+          "prompt": "A flat vector app icon of three isometric rounded rhombus slabs stacked vertically, each offset one step to the right, with a single small square cutout at the center of the top slab. Two tones, rounded geometric, corner radius about 10 percent of slab width, flat straight edges, gaps of one unit between slabs. Main shapes in Survey Teal #0B5563, accents in Contour Green #2BAF7E. Flat solid colors. Centered in a rounded-square app tile, one element filling about 70 percent of tile width, equal padding on all sides, no secondary elements. A single mark with generous even padding, on a plain white background, nothing else in frame. No text, no gradients, no drop shadows.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Contour Benchmark Rings",
+          "path": "generated/local-zimage-turbo_1795768577619_85e3fb.png",
+          "prompt": "A flat vector abstract logo mark of three concentric open rings, each broken by a gap at the upper right, surrounding a solid square at the center like contour lines around a survey benchmark. Two colors, circular arcs with flat-cut ends, uniform stroke about 6 percent of canvas width, sharp-cornered center square. Main shapes in Ink Navy #1B2A41, accents in Survey Orange #E8833A. Flat solid colors. Centered on a square canvas, symmetric about the vertical axis, clear space of one ring width on every side, exactly four elements. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No text, no gradients, no filled rings.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Quadrant Footprint Square",
+          "path": "generated/local-zimage-turbo_1795768595031_e4aff9.png",
+          "prompt": "A flat vector logo symbol, bold enough to read at 16 px of a square outline divided into a two by two grid with only the top left cell filled solid. Two tones, sharp-cornered geometric, grid lines at least one twelfth of the square width, no curves. Main shapes in Survey Teal #0B5563, accents in Mist Teal #A8D5CC. Flat solid colors. Single centered square filling about 80 percent of the canvas, four equal cells, no padding beyond 10 percent per side. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No text, no thin grid lines, no more than four cells.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        }
+      ]
+    }
+  },
+  "coffee-wordmark": {
+    "old": {
+      "recraft/recraft-v4.1-flash": [
+        {
+          "concept": "Retro roundel badge",
+          "path": "generated/recraft-recraft-v4-1-flash_1795766926115_caaf4c.png",
+          "prompt": "Circular badge logo for Ember & Oak with a thick ring outline in deep oak brown #4A2C17, holding a simple flame made of three stacked teardrop shapes in ember orange #C2410C that rises above a single oak leaf. The name Ember & Oak sits in a bold arched slab serif along the top inside the ring, with a small ember orange star at the bottom, centered on a plain white background with generous padding.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Hand-lettered wordmark with ember dot",
+          "path": "generated/recraft-recraft-v4-1-flash_1795766926532_922935.png",
+          "prompt": "Hand-lettered wordmark reading Ember & Oak in a slightly uneven brush script in deep oak brown #4A2C17, with the ampersand drawn as a loose loop that ends in a small glowing dot in ember orange #C2410C. A single hand-drawn underline stroke in mustard #D89B2B runs beneath the words, centered on a plain white background with generous padding.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Negative-space acorn flame",
+          "path": "generated/recraft-recraft-v4-1-flash_1795766925288_7344b3.png",
+          "prompt": "Logo mark of a solid acorn in deep oak brown #4A2C17 whose cap has a flame shape cut out in negative space, with a small ember orange #C2410C flame sitting beside it. The name Ember & Oak is set below in widely spaced uppercase retro letters in the same brown, all centered on a plain white background with generous padding.",
+          "params": {},
+          "error": null
+        }
+      ],
+      "black-forest-labs/flux.2-klein-4b": [
+        {
+          "concept": "Retro roundel badge",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795766932039_5ae7c9.png",
+          "prompt": "Circular badge logo for Ember & Oak with a thick ring outline in deep oak brown #4A2C17, holding a simple flame made of three stacked teardrop shapes in ember orange #C2410C that rises above a single oak leaf. The name Ember & Oak sits in a bold arched slab serif along the top inside the ring, with a small ember orange star at the bottom, centered on a plain white background with generous padding.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Hand-lettered wordmark with ember dot",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795766931715_cab281.png",
+          "prompt": "Hand-lettered wordmark reading Ember & Oak in a slightly uneven brush script in deep oak brown #4A2C17, with the ampersand drawn as a loose loop that ends in a small glowing dot in ember orange #C2410C. A single hand-drawn underline stroke in mustard #D89B2B runs beneath the words, centered on a plain white background with generous padding.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Negative-space acorn flame",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795766931975_5b7909.png",
+          "prompt": "Logo mark of a solid acorn in deep oak brown #4A2C17 whose cap has a flame shape cut out in negative space, with a small ember orange #C2410C flame sitting beside it. The name Ember & Oak is set below in widely spaced uppercase retro letters in the same brown, all centered on a plain white background with generous padding.",
+          "params": {},
+          "error": null
+        }
+      ],
+      "google/gemini-2.5-flash-image": [
+        {
+          "concept": "Retro roundel badge",
+          "path": "generated/google-gemini-2-5-flash-image_1795766939780_716ede.png",
+          "prompt": "Circular badge logo for Ember & Oak with a thick ring outline in deep oak brown #4A2C17, holding a simple flame made of three stacked teardrop shapes in ember orange #C2410C that rises above a single oak leaf. The name Ember & Oak sits in a bold arched slab serif along the top inside the ring, with a small ember orange star at the bottom, centered on a plain white background with generous padding.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Hand-lettered wordmark with ember dot",
+          "path": "generated/google-gemini-2-5-flash-image_1795766938740_d55cb9.png",
+          "prompt": "Hand-lettered wordmark reading Ember & Oak in a slightly uneven brush script in deep oak brown #4A2C17, with the ampersand drawn as a loose loop that ends in a small glowing dot in ember orange #C2410C. A single hand-drawn underline stroke in mustard #D89B2B runs beneath the words, centered on a plain white background with generous padding.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Negative-space acorn flame",
+          "path": "generated/google-gemini-2-5-flash-image_1795766938179_fb38c2.png",
+          "prompt": "Logo mark of a solid acorn in deep oak brown #4A2C17 whose cap has a flame shape cut out in negative space, with a small ember orange #C2410C flame sitting beside it. The name Ember & Oak is set below in widely spaced uppercase retro letters in the same brown, all centered on a plain white background with generous padding.",
+          "params": {},
+          "error": null
+        }
+      ],
+      "local/zimage-turbo": [
+        {
+          "concept": "Retro roundel badge",
+          "path": "generated/local-zimage-turbo_1795766994484_0ebca2.png",
+          "prompt": "Circular badge logo for Ember & Oak with a thick ring outline in deep oak brown #4A2C17, holding a simple flame made of three stacked teardrop shapes in ember orange #C2410C that rises above a single oak leaf. The name Ember & Oak sits in a bold arched slab serif along the top inside the ring, with a small ember orange star at the bottom, centered on a plain white background with generous padding. Centered on a plain white background, flat vector logo icon, no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Hand-lettered wordmark with ember dot",
+          "path": "generated/local-zimage-turbo_1795766994621_26f4f1.png",
+          "prompt": "Hand-lettered wordmark reading Ember & Oak in a slightly uneven brush script in deep oak brown #4A2C17, with the ampersand drawn as a loose loop that ends in a small glowing dot in ember orange #C2410C. A single hand-drawn underline stroke in mustard #D89B2B runs beneath the words, centered on a plain white background with generous padding. Centered on a plain white background, flat vector logo icon, no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Negative-space acorn flame",
+          "path": "generated/local-zimage-turbo_1795767023547_cb55b5.png",
+          "prompt": "Logo mark of a solid acorn in deep oak brown #4A2C17 whose cap has a flame shape cut out in negative space, with a small ember orange #C2410C flame sitting beside it. The name Ember & Oak is set below in widely spaced uppercase retro letters in the same brown, all centered on a plain white background with generous padding. Centered on a plain white background, flat vector logo icon, no text.",
+          "params": {},
+          "error": null
+        }
+      ]
+    },
+    "new": {
+      "recraft/recraft-v4.1-flash": [
+        {
+          "concept": "Hand-lettered brush script",
+          "path": "generated/recraft-recraft-v4-1-flash_1795767027042_cc0b62.png",
+          "prompt": "Hand-lettered wordmark logo of The name set in a loose hand-lettered brush script, with the ampersand drawn as one looping stroke that rises slightly above the x-height of the letters. Main shapes in Espresso brown #3B2418, accents in Ember orange #C4552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. A single mark with generous even padding, on a solid Solid cream #F5EBDD background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          59,
+                          36,
+                          24
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          196,
+                          85,
+                          43
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        245,
+                        235,
+                        221
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        },
+        {
+          "concept": "Letterpress slab stack",
+          "path": "generated/recraft-recraft-v4-1-flash_1795767027105_611d18.png",
+          "prompt": "Vintage wood-type print wordmark logo of The name in a heavy wood-type slab serif, stacked on two lines with Ember on top and & Oak below, both lines set to the same width by adjusting letter spacing. Main shapes in Forest green #24402F, accents in Rust #B4532A. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. A single mark with generous even padding, on a solid Solid cream #F4E9D4 background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          36,
+                          64,
+                          47
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          180,
+                          83,
+                          42
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        244,
+                        233,
+                        212
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        },
+        {
+          "concept": "Monoline flame ampersand",
+          "path": "generated/recraft-recraft-v4-1-flash_1795767026728_d6d96e.png",
+          "prompt": "Flat vector wordmark logo of The name in a clean rounded geometric sans on one line, where the ampersand is redrawn as a single monoline stroke whose upper terminal curls into a small flame tip. Main shapes in Charcoal #2B2622, accents in Ember red #D9552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          43,
+                          38,
+                          34
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          217,
+                          85,
+                          43
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        255,
+                        255,
+                        255
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        }
+      ],
+      "black-forest-labs/flux.2-klein-4b": [
+        {
+          "concept": "Hand-lettered brush script",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795767033265_15dc3e.png",
+          "prompt": "A Hand-lettered wordmark logo of The name set in a loose hand-lettered brush script, with the ampersand drawn as one looping stroke that rises slightly above the x-height of the letters. Main shapes in Espresso brown #3B2418, accents in Ember orange #C4552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. A single mark with generous even padding, on a solid Solid cream #F5EBDD background, nothing else in frame.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        },
+        {
+          "concept": "Letterpress slab stack",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795767033548_09c80a.png",
+          "prompt": "A Vintage wood-type print wordmark logo of The name in a heavy wood-type slab serif, stacked on two lines with Ember on top and & Oak below, both lines set to the same width by adjusting letter spacing. Main shapes in Forest green #24402F, accents in Rust #B4532A. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. A single mark with generous even padding, on a solid Solid cream #F4E9D4 background, nothing else in frame.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        },
+        {
+          "concept": "Monoline flame ampersand",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795767034014_509e15.png",
+          "prompt": "A Flat vector wordmark logo of The name in a clean rounded geometric sans on one line, where the ampersand is redrawn as a single monoline stroke whose upper terminal curls into a small flame tip. Main shapes in Charcoal #2B2622, accents in Ember red #D9552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        }
+      ],
+      "google/gemini-2.5-flash-image": [
+        {
+          "concept": "Hand-lettered brush script",
+          "path": "generated/google-gemini-2-5-flash-image_1795767040643_91fd53.png",
+          "prompt": "A Hand-lettered wordmark logo of The name set in a loose hand-lettered brush script, with the ampersand drawn as one looping stroke that rises slightly above the x-height of the letters. Flat, single color, Soft curves with variable stroke weight, thick downstrokes, tapered upstrokes, round stroke ends. Main shapes in Espresso brown #3B2418, accents in Ember orange #C4552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. Flat solid colors, sturdy line weight, flat fills. A single mark with generous even padding, on a solid Solid cream #F5EBDD background, nothing else in frame.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Letterpress slab stack",
+          "path": "generated/google-gemini-2-5-flash-image_1795767041374_1e3331.png",
+          "prompt": "A Vintage wood-type print wordmark logo of The name in a heavy wood-type slab serif, stacked on two lines with Ember on top and & Oak below, both lines set to the same width by adjusting letter spacing. Flat, two colors, Blunt square serifs, sturdy even stroke weight, sharp corners, slightly condensed letterforms. Main shapes in Forest green #24402F, accents in Rust #B4532A. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. Flat solid colors, flat 2D. A single mark with generous even padding, on a solid Solid cream #F4E9D4 background, nothing else in frame.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Monoline flame ampersand",
+          "path": "generated/google-gemini-2-5-flash-image_1795767040739_41bd6c.png",
+          "prompt": "A Flat vector wordmark logo of The name in a clean rounded geometric sans on one line, where the ampersand is redrawn as a single monoline stroke whose upper terminal curls into a small flame tip. One color, Rounded geometric, uniform monoline stroke with round caps and joins, circular bowls. Main shapes in Charcoal #2B2622, accents in Ember red #D9552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. Flat solid colors, sturdy line weight. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {},
+          "error": null
+        }
+      ],
+      "local/zimage-turbo": [
+        {
+          "concept": "Hand-lettered brush script",
+          "path": "generated/local-zimage-turbo_1795767073529_b75ee3.png",
+          "prompt": "A Hand-lettered wordmark logo of The name set in a loose hand-lettered brush script, with the ampersand drawn as one looping stroke that rises slightly above the x-height of the letters. Flat, single color, Soft curves with variable stroke weight, thick downstrokes, tapered upstrokes, round stroke ends. Main shapes in Espresso brown #3B2418, accents in Ember orange #C4552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. Flat solid colors, sturdy line weight, flat fills. Single line, centered, padding about 20 percent of the cap height on every side, no extra elements. A single mark with generous even padding, on a solid Solid cream #F5EBDD background, nothing else in frame.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Letterpress slab stack",
+          "path": "generated/local-zimage-turbo_1795767073745_7099be.png",
+          "prompt": "A Vintage wood-type print wordmark logo of The name in a heavy wood-type slab serif, stacked on two lines with Ember on top and & Oak below, both lines set to the same width by adjusting letter spacing. Flat, two colors, Blunt square serifs, sturdy even stroke weight, sharp corners, slightly condensed letterforms. Main shapes in Forest green #24402F, accents in Rust #B4532A. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. Flat solid colors, flat 2D. Two centered stacked lines, no ornament, even margins around the block, the block roughly square. A single mark with generous even padding, on a solid Solid cream #F4E9D4 background, nothing else in frame.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Monoline flame ampersand",
+          "path": "generated/local-zimage-turbo_1795767092256_74cc87.png",
+          "prompt": "A Flat vector wordmark logo of The name in a clean rounded geometric sans on one line, where the ampersand is redrawn as a single monoline stroke whose upper terminal curls into a small flame tip. One color, Rounded geometric, uniform monoline stroke with round caps and joins, circular bowls. Main shapes in Charcoal #2B2622, accents in Ember red #D9552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. Flat solid colors, sturdy line weight. Single line, centered, slightly open letter spacing, ampersand the same height as the caps, equal padding on all sides. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        }
+      ]
+    },
+    "new2": {
+      "recraft/recraft-v4.1-flash": [
+        {
+          "concept": "Hand-lettered brush script",
+          "path": "generated/recraft-recraft-v4-1-flash_1795768151584_53ee76.png",
+          "prompt": "Hand-lettered wordmark logo of the name set in a loose hand-lettered brush script, with the ampersand drawn as one looping stroke that rises slightly above the x-height of the letters. Main shapes in Espresso brown #3B2418, accents in Ember orange #C4552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          59,
+                          36,
+                          24
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          196,
+                          85,
+                          43
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        255,
+                        255,
+                        255
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        },
+        {
+          "concept": "Letterpress slab stack",
+          "path": "generated/recraft-recraft-v4-1-flash_1795768151798_8766eb.png",
+          "prompt": "Vintage wood-type print wordmark logo of the name in a heavy wood-type slab serif, stacked on two lines with Ember on top and & Oak below, both lines set to the same width by adjusting letter spacing. Main shapes in Forest green #24402F, accents in Rust #B4532A. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          36,
+                          64,
+                          47
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          180,
+                          83,
+                          42
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        255,
+                        255,
+                        255
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        },
+        {
+          "concept": "Monoline flame ampersand",
+          "path": "generated/recraft-recraft-v4-1-flash_1795768151430_7f177e.png",
+          "prompt": "Flat vector wordmark logo of the name in a clean rounded geometric sans on one line, where the ampersand is redrawn as a single monoline stroke whose upper terminal curls into a small flame tip. Main shapes in Charcoal #2B2622, accents in Ember red #D9552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          43,
+                          38,
+                          34
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          217,
+                          85,
+                          43
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        255,
+                        255,
+                        255
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        }
+      ],
+      "black-forest-labs/flux.2-klein-4b": [
+        {
+          "concept": "Hand-lettered brush script",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795768157916_c38a71.png",
+          "prompt": "A hand-lettered wordmark logo of the name set in a loose hand-lettered brush script, with the ampersand drawn as one looping stroke that rises slightly above the x-height of the letters. Main shapes in Espresso brown #3B2418, accents in Ember orange #C4552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        },
+        {
+          "concept": "Letterpress slab stack",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795768158855_2fd3ea.png",
+          "prompt": "A vintage wood-type print wordmark logo of the name in a heavy wood-type slab serif, stacked on two lines with Ember on top and & Oak below, both lines set to the same width by adjusting letter spacing. Main shapes in Forest green #24402F, accents in Rust #B4532A. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        },
+        {
+          "concept": "Monoline flame ampersand",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795768157871_f186ff.png",
+          "prompt": "A flat vector wordmark logo of the name in a clean rounded geometric sans on one line, where the ampersand is redrawn as a single monoline stroke whose upper terminal curls into a small flame tip. Main shapes in Charcoal #2B2622, accents in Ember red #D9552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        }
+      ],
+      "google/gemini-2.5-flash-image": [
+        {
+          "concept": "Hand-lettered brush script",
+          "path": "generated/google-gemini-2-5-flash-image_1795768165335_c2b1e0.png",
+          "prompt": "A hand-lettered wordmark logo of the name set in a loose hand-lettered brush script, with the ampersand drawn as one looping stroke that rises slightly above the x-height of the letters. Flat, single color, soft curves with variable stroke weight, thick downstrokes, tapered upstrokes, round stroke ends. Main shapes in Espresso brown #3B2418, accents in Ember orange #C4552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. Flat solid colors, sturdy line weight. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Letterpress slab stack",
+          "path": "generated/google-gemini-2-5-flash-image_1795768166607_aa63ac.png",
+          "prompt": "A vintage wood-type print wordmark logo of the name in a heavy wood-type slab serif, stacked on two lines with Ember on top and & Oak below, both lines set to the same width by adjusting letter spacing. Flat, two colors, blunt square serifs, sturdy even stroke weight, sharp corners, slightly condensed letterforms. Main shapes in Forest green #24402F, accents in Rust #B4532A. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. Flat solid colors. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Monoline flame ampersand",
+          "path": "generated/google-gemini-2-5-flash-image_1795768165208_6a9844.png",
+          "prompt": "A flat vector wordmark logo of the name in a clean rounded geometric sans on one line, where the ampersand is redrawn as a single monoline stroke whose upper terminal curls into a small flame tip. One color, rounded geometric, uniform monoline stroke with round caps and joins, circular bowls. Main shapes in Charcoal #2B2622, accents in Ember red #D9552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. Flat solid colors, sturdy line weight. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {},
+          "error": null
+        }
+      ],
+      "local/zimage-turbo": [
+        {
+          "concept": "Hand-lettered brush script",
+          "path": "generated/local-zimage-turbo_1795768323493_a9b561.png",
+          "prompt": "A hand-lettered wordmark logo of the name set in a loose hand-lettered brush script, with the ampersand drawn as one looping stroke that rises slightly above the x-height of the letters. Flat, single color, soft curves with variable stroke weight, thick downstrokes, tapered upstrokes, round stroke ends. Main shapes in Espresso brown #3B2418, accents in Ember orange #C4552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. Flat solid colors, sturdy line weight. Single line, centered, padding about 20 percent of the cap height on every side, no extra elements. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Letterpress slab stack",
+          "path": "generated/local-zimage-turbo_1795768341577_91e871.png",
+          "prompt": "A vintage wood-type print wordmark logo of the name in a heavy wood-type slab serif, stacked on two lines with Ember on top and & Oak below, both lines set to the same width by adjusting letter spacing. Flat, two colors, blunt square serifs, sturdy even stroke weight, sharp corners, slightly condensed letterforms. Main shapes in Forest green #24402F, accents in Rust #B4532A. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. Flat solid colors. Two centered stacked lines, no ornament, even margins around the block, the block roughly square. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Monoline flame ampersand",
+          "path": "generated/local-zimage-turbo_1795768361418_401033.png",
+          "prompt": "A flat vector wordmark logo of the name in a clean rounded geometric sans on one line, where the ampersand is redrawn as a single monoline stroke whose upper terminal curls into a small flame tip. One color, rounded geometric, uniform monoline stroke with round caps and joins, circular bowls. Main shapes in Charcoal #2B2622, accents in Ember red #D9552B. The text \"Ember & Oak\" as the whole logo, spelled exactly, in clean lettering. Flat solid colors, sturdy line weight. Single line, centered, slightly open letter spacing, ampersand the same height as the caps, equal padding on all sides. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        }
+      ]
+    }
+  },
+  "fintech-icon": {
+    "old": {
+      "recraft/recraft-v4.1-flash": [
+        {
+          "concept": "Set-aside wedge",
+          "path": "generated/recraft-recraft-v4-1-flash_1795767095501_a83f7f.png",
+          "prompt": "Flat geometric logo mark for a fintech app icon: a solid deep teal #0F766E circle with one quarter-wedge slice pulled slightly outward and colored warm amber #F5B841, the separated slice reading as money set aside from the whole. Centered with generous padding on a plain white background, with bold shapes that stay legible at 32 px and no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Ledger page with check",
+          "path": "generated/recraft-recraft-v4-1-flash_1795767095317_e7d0ec.png",
+          "prompt": "Negative space logo mark for a fintech app icon: a tall rounded ledger page built from one solid navy #1E3A5F shape, with three short horizontal lines cut out of it and a bold emerald #10B981 check mark sitting over the lower corner. Centered with generous padding on a plain white background, simple enough to read at 32 px.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Progress ring",
+          "path": "generated/recraft-recraft-v4-1-flash_1795767095802_2f147e.png",
+          "prompt": "Line mark logo for a fintech app icon: a single thick rounded stroke drawn as a three-quarter open circle in deep indigo #3B4BA8, with a solid round dot at the open end where the stroke terminates. Minimal monoline geometric style, centered with generous padding on a plain white background, clean enough to read at 32 px.",
+          "params": {},
+          "error": null
+        }
+      ],
+      "black-forest-labs/flux.2-klein-4b": [
+        {
+          "concept": "Set-aside wedge",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795767101669_eabbe0.png",
+          "prompt": "Flat geometric logo mark for a fintech app icon: a solid deep teal #0F766E circle with one quarter-wedge slice pulled slightly outward and colored warm amber #F5B841, the separated slice reading as money set aside from the whole. Centered with generous padding on a plain white background, with bold shapes that stay legible at 32 px and no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Ledger page with check",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795767101471_0b8002.png",
+          "prompt": "Negative space logo mark for a fintech app icon: a tall rounded ledger page built from one solid navy #1E3A5F shape, with three short horizontal lines cut out of it and a bold emerald #10B981 check mark sitting over the lower corner. Centered with generous padding on a plain white background, simple enough to read at 32 px.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Progress ring",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795767101048_ac3259.png",
+          "prompt": "Line mark logo for a fintech app icon: a single thick rounded stroke drawn as a three-quarter open circle in deep indigo #3B4BA8, with a solid round dot at the open end where the stroke terminates. Minimal monoline geometric style, centered with generous padding on a plain white background, clean enough to read at 32 px.",
+          "params": {},
+          "error": null
+        }
+      ],
+      "google/gemini-2.5-flash-image": [
+        {
+          "concept": "Set-aside wedge",
+          "path": "generated/google-gemini-2-5-flash-image_1795767107754_5d6258.png",
+          "prompt": "Flat geometric logo mark for a fintech app icon: a solid deep teal #0F766E circle with one quarter-wedge slice pulled slightly outward and colored warm amber #F5B841, the separated slice reading as money set aside from the whole. Centered with generous padding on a plain white background, with bold shapes that stay legible at 32 px and no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Ledger page with check",
+          "path": "generated/google-gemini-2-5-flash-image_1795767107861_c4020e.png",
+          "prompt": "Negative space logo mark for a fintech app icon: a tall rounded ledger page built from one solid navy #1E3A5F shape, with three short horizontal lines cut out of it and a bold emerald #10B981 check mark sitting over the lower corner. Centered with generous padding on a plain white background, simple enough to read at 32 px.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Progress ring",
+          "path": "generated/google-gemini-2-5-flash-image_1795767108117_6178ab.png",
+          "prompt": "Line mark logo for a fintech app icon: a single thick rounded stroke drawn as a three-quarter open circle in deep indigo #3B4BA8, with a solid round dot at the open end where the stroke terminates. Minimal monoline geometric style, centered with generous padding on a plain white background, clean enough to read at 32 px.",
+          "params": {},
+          "error": null
+        }
+      ],
+      "local/zimage-turbo": [
+        {
+          "concept": "Set-aside wedge",
+          "path": "generated/local-zimage-turbo_1795767165155_166240.png",
+          "prompt": "Flat geometric logo mark for a fintech app icon: a solid deep teal #0F766E circle with one quarter-wedge slice pulled slightly outward and colored warm amber #F5B841, the separated slice reading as money set aside from the whole. Centered with generous padding on a plain white background, with bold shapes that stay legible at 32 px and no text. Centered on a plain white background, flat vector logo icon, no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Ledger page with check",
+          "path": "generated/local-zimage-turbo_1795767165303_b904a4.png",
+          "prompt": "Negative space logo mark for a fintech app icon: a tall rounded ledger page built from one solid navy #1E3A5F shape, with three short horizontal lines cut out of it and a bold emerald #10B981 check mark sitting over the lower corner. Centered with generous padding on a plain white background, simple enough to read at 32 px. Centered on a plain white background, flat vector logo icon, no text.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Progress ring",
+          "path": "generated/local-zimage-turbo_1795767195487_544ae3.png",
+          "prompt": "Line mark logo for a fintech app icon: a single thick rounded stroke drawn as a three-quarter open circle in deep indigo #3B4BA8, with a solid round dot at the open end where the stroke terminates. Minimal monoline geometric style, centered with generous padding on a plain white background, clean enough to read at 32 px. Centered on a plain white background, flat vector logo icon, no text.",
+          "params": {},
+          "error": null
+        }
+      ]
+    },
+    "new": {
+      "recraft/recraft-v4.1-flash": [
+        {
+          "concept": "Set-aside slice",
+          "path": "generated/recraft-recraft-v4-1-flash_1795767198565_b8767c.png",
+          "prompt": "Flat vector app icon of a solid circle divided into a large wedge and one smaller wedge pulled slightly outward from the center, the small wedge standing for the share set aside for taxes. Main shapes in deep teal #1F5C5A, accents in warm amber #E9A23B. Flat colors only, one unified silhouette, no gradients, no shadows, no texture, no thin hairlines, no drop shadows. A single mark with generous even padding, on a solid solid #F5F1E8 background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          31,
+                          92,
+                          90
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          233,
+                          162,
+                          59
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        245,
+                        241,
+                        232
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        },
+        {
+          "concept": "Ledger line L",
+          "path": "generated/recraft-recraft-v4-1-flash_1795767198481_90660b.png",
+          "prompt": "Flat vector app icon of a bold capital L whose horizontal foot ends in a small filled circle, reading as a ledger line finished with a coin. Main shapes in ink navy #1E2F4D, accents in mint #4FBF9F. The text \"L\" as a single bold monogram, spelled exactly, in clean lettering. A single mark with generous even padding, on a solid solid #F4F7F6 background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          30,
+                          47,
+                          77
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          79,
+                          191,
+                          159
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        244,
+                        247,
+                        246
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        },
+        {
+          "concept": "Umbrella over coins",
+          "path": "generated/recraft-recraft-v4-1-flash_1795767198591_ba2f42.png",
+          "prompt": "Flat vector app icon of a rounded umbrella canopy shielding a short stack of three coins, the canopy a simple semicircle with three scalloped bumps along its lower edge and a short straight handle. Main shapes in midnight blue #24415E, accents in coral #E8775A. A single mark with generous even padding, on a solid solid #FBF8F3 background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          36,
+                          65,
+                          94
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          232,
+                          119,
+                          90
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        251,
+                        248,
+                        243
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        }
+      ],
+      "black-forest-labs/flux.2-klein-4b": [
+        {
+          "concept": "Set-aside slice",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795767205582_8629a1.png",
+          "prompt": "A flat vector app icon of a solid circle divided into a large wedge and one smaller wedge pulled slightly outward from the center, the small wedge standing for the share set aside for taxes. Two colors, geometric, straight-edged wedges inside a clean circle silhouette, no outlines. Main shapes in deep teal #1F5C5A, accents in warm amber #E9A23B. A single mark with generous even padding, on a solid solid #F5F1E8 background, nothing else in frame. No text, no gradients, no thin hairlines.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        },
+        {
+          "concept": "Ledger line L",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795767204359_c9876a.png",
+          "prompt": "A flat vector app icon of a bold capital L whose horizontal foot ends in a small filled circle, reading as a ledger line finished with a coin. Two colors, heavy geometric sans, square terminals, uniform stroke weight, circle diameter matching the stroke width. Main shapes in ink navy #1E2F4D, accents in mint #4FBF9F. The text \"L\" as a single bold monogram, spelled exactly, in clean lettering. A single mark with generous even padding, on a solid solid #F4F7F6 background, nothing else in frame.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        },
+        {
+          "concept": "Umbrella over coins",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795767205589_6e5bd8.png",
+          "prompt": "A flat vector app icon of a rounded umbrella canopy shielding a short stack of three coins, the canopy a simple semicircle with three scalloped bumps along its lower edge and a short straight handle. Main shapes in midnight blue #24415E, accents in coral #E8775A. A single mark with generous even padding, on a solid solid #FBF8F3 background, nothing else in frame. No text, no gradients, no fine ribs or spokes on the canopy.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        }
+      ],
+      "google/gemini-2.5-flash-image": [
+        {
+          "concept": "Set-aside slice",
+          "path": "generated/google-gemini-2-5-flash-image_1795767212579_b60400.png",
+          "prompt": "A flat vector app icon of a solid circle divided into a large wedge and one smaller wedge pulled slightly outward from the center, the small wedge standing for the share set aside for taxes. Two colors, geometric, straight-edged wedges inside a clean circle silhouette, no outlines. Main shapes in deep teal #1F5C5A, accents in warm amber #E9A23B. Flat solid colors, sturdy line weight, flat fills, matte flat colors. A single mark with generous even padding, on a solid solid #F5F1E8 background, nothing else in frame.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Ledger line L",
+          "path": "generated/google-gemini-2-5-flash-image_1795767212693_08afa0.png",
+          "prompt": "A flat vector app icon of a bold capital L whose horizontal foot ends in a small filled circle, reading as a ledger line finished with a coin. Two colors, heavy geometric sans, square terminals, uniform stroke weight, circle diameter matching the stroke width. Main shapes in ink navy #1E2F4D, accents in mint #4FBF9F. The text \"L\" as a single bold monogram, spelled exactly, in clean lettering. Flat solid colors, sturdy line weight, matte flat colors. A single mark with generous even padding, on a solid solid #F4F7F6 background, nothing else in frame.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Umbrella over coins",
+          "path": "generated/google-gemini-2-5-flash-image_1795767212744_ac3a9c.png",
+          "prompt": "A flat vector app icon of a rounded umbrella canopy shielding a short stack of three coins, the canopy a simple semicircle with three scalloped bumps along its lower edge and a short straight handle. Two colors, rounded geometric, soft corners, built from circles, one semicircle and flat rounded rectangles. Main shapes in midnight blue #24415E, accents in coral #E8775A. Flat solid colors, flat fills, matte flat colors. A single mark with generous even padding, on a solid solid #FBF8F3 background, nothing else in frame.",
+          "params": {},
+          "error": null
+        }
+      ],
+      "local/zimage-turbo": [
+        {
+          "concept": "Set-aside slice",
+          "path": "generated/local-zimage-turbo_1795767243758_88d959.png",
+          "prompt": "A flat vector app icon of a solid circle divided into a large wedge and one smaller wedge pulled slightly outward from the center, the small wedge standing for the share set aside for taxes. Two colors, geometric, straight-edged wedges inside a clean circle silhouette, no outlines. Main shapes in deep teal #1F5C5A, accents in warm amber #E9A23B. Flat solid colors, sturdy line weight, flat fills, matte flat colors. A single mark with generous even padding, on a solid solid #F5F1E8 background, nothing else in frame. No text, no gradients, no thin hairlines.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Ledger line L",
+          "path": "generated/local-zimage-turbo_1795767243958_2525df.png",
+          "prompt": "A flat vector app icon of a bold capital L whose horizontal foot ends in a small filled circle, reading as a ledger line finished with a coin. Two colors, heavy geometric sans, square terminals, uniform stroke weight, circle diameter matching the stroke width. Main shapes in ink navy #1E2F4D, accents in mint #4FBF9F. The text \"L\" as a single bold monogram, spelled exactly, in clean lettering. Flat solid colors, sturdy line weight, matte flat colors. Single centered letter filling about 65 percent of the square, the circle sitting on the baseline at the right end of the foot, no other elements. A single mark with generous even padding, on a solid solid #F4F7F6 background, nothing else in frame.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Umbrella over coins",
+          "path": "generated/local-zimage-turbo_1795767260758_322136.png",
+          "prompt": "A flat vector app icon of a rounded umbrella canopy shielding a short stack of three coins, the canopy a simple semicircle with three scalloped bumps along its lower edge and a short straight handle. Two colors, rounded geometric, soft corners, built from circles, one semicircle and flat rounded rectangles. Main shapes in midnight blue #24415E, accents in coral #E8775A. Flat solid colors, flat fills, matte flat colors. A single mark with generous even padding, on a solid solid #FBF8F3 background, nothing else in frame. No text, no gradients, no fine ribs or spokes on the canopy.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        }
+      ]
+    },
+    "new2": {
+      "recraft/recraft-v4.1-flash": [
+        {
+          "concept": "Set-aside slice",
+          "path": "generated/recraft-recraft-v4-1-flash_1795768170093_af408f.png",
+          "prompt": "Flat vector app icon of a solid circle divided into a large wedge and one smaller wedge pulled slightly outward from the center, the small wedge standing for the share set aside for taxes. Main shapes in deep teal #1F5C5A, accents in warm amber #E9A23B. Flat colors only, one unified silhouette, no gradients, no shadows, no texture, no thin hairlines, no drop shadows. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          31,
+                          92,
+                          90
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          233,
+                          162,
+                          59
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        255,
+                        255,
+                        255
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        },
+        {
+          "concept": "Ledger line L",
+          "path": "generated/recraft-recraft-v4-1-flash_1795768170162_268584.png",
+          "prompt": "Flat vector app icon of a bold capital L whose horizontal foot ends in a small filled circle, reading as a ledger line finished with a coin. Main shapes in ink navy #1E2F4D, accents in mint #4FBF9F. The text \"L\" as a single bold monogram, spelled exactly, in clean lettering. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          30,
+                          47,
+                          77
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          79,
+                          191,
+                          159
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        255,
+                        255,
+                        255
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        },
+        {
+          "concept": "Umbrella over coins",
+          "path": "generated/recraft-recraft-v4-1-flash_1795768170104_102911.png",
+          "prompt": "Flat vector app icon of a rounded umbrella canopy shielding a short stack of three coins, the canopy a simple semicircle with three scalloped bumps along its lower edge and a short straight handle. Main shapes in midnight blue #24415E, accents in coral #E8775A. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "provider": {
+              "options": {
+                "recraft": {
+                  "controls": {
+                    "colors": [
+                      {
+                        "rgb": [
+                          36,
+                          65,
+                          94
+                        ]
+                      },
+                      {
+                        "rgb": [
+                          232,
+                          119,
+                          90
+                        ]
+                      }
+                    ],
+                    "background_color": {
+                      "rgb": [
+                        255,
+                        255,
+                        255
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "error": null
+        }
+      ],
+      "black-forest-labs/flux.2-klein-4b": [
+        {
+          "concept": "Set-aside slice",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795768175529_2382ad.png",
+          "prompt": "A flat vector app icon of a solid circle divided into a large wedge and one smaller wedge pulled slightly outward from the center, the small wedge standing for the share set aside for taxes. Two colors, geometric, straight-edged wedges inside a clean circle silhouette, no outlines. Main shapes in deep teal #1F5C5A, accents in warm amber #E9A23B. A single mark with generous even padding, on a plain white background, nothing else in frame. No text, no gradients, no thin hairlines.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        },
+        {
+          "concept": "Ledger line L",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795768176533_90ecec.png",
+          "prompt": "A flat vector app icon of a bold capital L whose horizontal foot ends in a small filled circle, reading as a ledger line finished with a coin. Two colors, heavy geometric sans, square terminals, uniform stroke weight, circle diameter matching the stroke width. Main shapes in ink navy #1E2F4D, accents in mint #4FBF9F. The text \"L\" as a single bold monogram, spelled exactly, in clean lettering. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        },
+        {
+          "concept": "Umbrella over coins",
+          "path": "generated/black-forest-labs-flux-2-klein-4b_1795768176263_4489a5.png",
+          "prompt": "A flat vector app icon of a rounded umbrella canopy shielding a short stack of three coins, the canopy a simple semicircle with three scalloped bumps along its lower edge and a short straight handle. Main shapes in midnight blue #24415E, accents in coral #E8775A. A single mark with generous even padding, on a plain white background, nothing else in frame. No text, no gradients, no fine ribs or spokes on the canopy.",
+          "params": {
+            "output_format": "png"
+          },
+          "error": null
+        }
+      ],
+      "google/gemini-2.5-flash-image": [
+        {
+          "concept": "Set-aside slice",
+          "path": "generated/google-gemini-2-5-flash-image_1795768183717_02bb5e.png",
+          "prompt": "A flat vector app icon of a solid circle divided into a large wedge and one smaller wedge pulled slightly outward from the center, the small wedge standing for the share set aside for taxes. Two colors, geometric, straight-edged wedges inside a clean circle silhouette, no outlines. Main shapes in deep teal #1F5C5A, accents in warm amber #E9A23B. Flat solid colors, sturdy line weight. Single centered symbol filling about 70 percent of the square so it survives the OS corner mask, the pulled wedge offset to the upper right, no other elements. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Ledger line L",
+          "path": "generated/google-gemini-2-5-flash-image_1795768183532_f505cb.png",
+          "prompt": "A flat vector app icon of a bold capital L whose horizontal foot ends in a small filled circle, reading as a ledger line finished with a coin. Two colors, heavy geometric sans, square terminals, uniform stroke weight, circle diameter matching the stroke width. Main shapes in ink navy #1E2F4D, accents in mint #4FBF9F. The text \"L\" as a single bold monogram, spelled exactly, in clean lettering. Flat solid colors, sturdy line weight. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {},
+          "error": null
+        },
+        {
+          "concept": "Umbrella over coins",
+          "path": "generated/google-gemini-2-5-flash-image_1795768183668_6d7f29.png",
+          "prompt": "A flat vector app icon of a rounded umbrella canopy shielding a short stack of three coins, the canopy a simple semicircle with three scalloped bumps along its lower edge and a short straight handle. Two colors, rounded geometric, soft corners, built from circles, one semicircle and flat rounded rectangles. Main shapes in midnight blue #24415E, accents in coral #E8775A. Flat solid colors. Single centered group, canopy in the top half and coin stack in the bottom half, symmetrical about the vertical axis, filling about 70 percent of the square. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {},
+          "error": null
+        }
+      ],
+      "local/zimage-turbo": [
+        {
+          "concept": "Set-aside slice",
+          "path": "generated/local-zimage-turbo_1795768381000_96ad4b.png",
+          "prompt": "A flat vector app icon of a solid circle divided into a large wedge and one smaller wedge pulled slightly outward from the center, the small wedge standing for the share set aside for taxes. Two colors, geometric, straight-edged wedges inside a clean circle silhouette, no outlines. Main shapes in deep teal #1F5C5A, accents in warm amber #E9A23B. Flat solid colors, sturdy line weight. Single centered symbol filling about 70 percent of the square so it survives the OS corner mask, the pulled wedge offset to the upper right, no other elements. A single mark with generous even padding, on a plain white background, nothing else in frame. No text, no gradients, no thin hairlines.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Ledger line L",
+          "path": "generated/local-zimage-turbo_1795768399484_219c1f.png",
+          "prompt": "A flat vector app icon of a bold capital L whose horizontal foot ends in a small filled circle, reading as a ledger line finished with a coin. Two colors, heavy geometric sans, square terminals, uniform stroke weight, circle diameter matching the stroke width. Main shapes in ink navy #1E2F4D, accents in mint #4FBF9F. The text \"L\" as a single bold monogram, spelled exactly, in clean lettering. Flat solid colors, sturdy line weight. Single centered letter filling about 65 percent of the square, the circle sitting on the baseline at the right end of the foot, no other elements. A single mark with generous even padding, on a plain white background, nothing else in frame.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Umbrella over coins",
+          "path": "generated/local-zimage-turbo_1795768418255_a64395.png",
+          "prompt": "A flat vector app icon of a rounded umbrella canopy shielding a short stack of three coins, the canopy a simple semicircle with three scalloped bumps along its lower edge and a short straight handle. Two colors, rounded geometric, soft corners, built from circles, one semicircle and flat rounded rectangles. Main shapes in midnight blue #24415E, accents in coral #E8775A. Flat solid colors. Single centered group, canopy in the top half and coin stack in the bottom half, symmetrical about the vertical axis, filling about 70 percent of the square. A single mark with generous even padding, on a plain white background, nothing else in frame. No text, no gradients, no fine ribs or spokes on the canopy.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        }
+      ]
+    },
+    "new3": {
+      "local/zimage-turbo": [
+        {
+          "concept": "Set-aside slice",
+          "path": "generated/local-zimage-turbo_1795768612304_1b2e6a.png",
+          "prompt": "A flat vector app icon of a solid circle divided into a large wedge and one smaller wedge pulled slightly outward from the center. Two colors, geometric, straight-edged wedges inside a clean circle silhouette, no outlines. Main shapes in deep teal #1F5C5A, accents in warm amber #E9A23B. Flat solid colors, sturdy line weight. Single centered symbol filling about 70 percent of the square so it survives the OS corner mask, the pulled wedge offset to the upper right, no other elements. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No text, no gradients, no thin hairlines.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Ledger line L",
+          "path": "generated/local-zimage-turbo_1795768629741_5311f4.png",
+          "prompt": "A flat vector app icon of a bold capital L whose horizontal foot ends in a small filled circle. Two colors, heavy geometric sans, square terminals, uniform stroke weight, circle diameter matching the stroke width. Main shapes in ink navy #1E2F4D, accents in mint #4FBF9F. The text \"L\" as a single bold monogram, spelled exactly, in clean lettering. Flat solid colors, sturdy line weight. Single centered letter filling about 65 percent of the square, the circle sitting on the baseline at the right end of the foot, no other elements. A single mark with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No serifs, no gradients.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        },
+        {
+          "concept": "Umbrella over coins",
+          "path": "generated/local-zimage-turbo_1795768646620_8699b0.png",
+          "prompt": "A flat vector app icon of a rounded umbrella canopy shielding a short stack of three coins, the canopy a simple semicircle with three scalloped bumps along its lower edge and a short straight handle. Two colors, rounded geometric, soft corners, built from circles, one semicircle and flat rounded rectangles. Main shapes in midnight blue #24415E, accents in coral #E8775A. Flat solid colors. Single centered group, canopy in the top half and coin stack in the bottom half, symmetrical about the vertical axis, filling about 70 percent of the square. A single mark with generous even padding, on a plain white background, nothing else in frame. No text, no gradients, no fine ribs or spokes on the canopy.",
+          "params": {
+            "steps": 9,
+            "guidance": 0.0
+          },
+          "error": null
+        }
+      ]
+    }
+  }
+}

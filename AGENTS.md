@@ -17,7 +17,7 @@ The launcher logic is `scripts/launch.py` (stdlib only, run through `uv run --no
 
 | Command | What it checks |
 |---|---|
-| `uv run pytest` | Backend tests in `tests/`: chat turns that keep running when the browser leaves, branches, feedback events, caps and the rate limiter, rankings and the value formula, background removal math, and that `llms-full.txt` is current. They use a throwaway data folder (`tests/conftest.py`) and a fake model, so they cost nothing. |
+| `uv run pytest` | Backend tests in `tests/`: chat turns that keep running when the browser leaves, branches, feedback events and what the designer learns from them, rendered prompts per model, caps and the rate limiter, rankings and the value formula, background removal math, and that `llms-full.txt` is current. They use a throwaway data folder (`tests/conftest.py`) and a fake model, so they cost nothing. |
 | `cd frontend && bunx tsc -b && bunx eslint src && bun run build` | Types, lint and the production build. |
 | `uvx ruff check --line-length 140 --select E,F,W src tests scripts` | Python lint. |
 | `uv run python scripts/llms.py` | Regenerates `llms-full.txt` from the API. Run it after changing an endpoint, a request model or an endpoint docstring; `--check` only compares. |
@@ -52,7 +52,8 @@ Don't change these without the maintainer asking for it:
 
 - `src/logo_gen/server.py`: every HTTP route. `jobs.py`: background jobs with progress and cancel. `generator.py`: turns prompts into images across cloud and local models, with caps and the adaptive rate limiter.
 - `chats.py` and `turns.py`: designer chats as a message tree, and replies that run on the server and stream over SSE with resume.
-- `prompt_engine.py`: the designer and prompt-writing system prompts, history building and prompt parsing. Prompt quality work happens here.
+- `prompt_engine.py`: the designer and prompt-writing system prompts, history building and reply parsing. The designer writes design briefs, not image prompts.
+- `prompting/`: `brief.py` (the brief fields and JSON schema), `profiles.py` (how each image model family reads prompts, as data), `render.py` (brief to per-model prompt and request options) and `preferences.py` (what the designer learns from `feedback_events` and typed feedback). Rendered prompts have snapshot tests in `tests/snapshots/`; refresh them with `UPDATE_SNAPSHOTS=1 uv run pytest tests/test_prompting.py` after an intended change. `research/prompting-2026.md` has the sources behind the profiles.
 - `library.py`: SQLite (`data/library.sqlite3`) for images, costs, chat tables and feedback events, with migrations in `_migrate`. `config.py`: settings and secrets.
 - `clients/`: OpenRouter, local OpenAI-compatible servers and the Claude CLI. `local_models/`: the registry, downloads (`manager.py`, `worker.py`) and diffusers pipelines (`diffusion.py`). `rankings.py`: leaderboard and popularity data for model pickers.
 - `postprocess.py` and `upscaler.py`: background removal and upscaling.

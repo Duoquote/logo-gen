@@ -113,7 +113,8 @@ async def _run(turn: Turn, history: list[dict]) -> None:
 
     try:
         vision = await prompt_engine.chat_supports_images()
-        messages = prompt_engine.build_history(history, paths.resolve_output, vision)
+        # The system prompt carries what this chat's reactions taught the designer.
+        messages = prompt_engine.build_history(history, paths.resolve_output, vision, chat_id=turn.chat_id)
         async for ev in prompt_engine.stream_reply(messages):
             kind = ev.get("type")
             if kind == "token":
@@ -129,8 +130,10 @@ async def _run(turn: Turn, history: list[dict]) -> None:
                 library.add_cost("chat", chat_id=turn.chat_id, message_id=turn.message_id, **rec)
                 turn.emit({"type": "usage", "credits": rec["credits"], "byok": rec["byok"]})
             _save(turn)
-        prompts = prompt_engine.parse_prompts(turn.content)
-        shown = prompt_engine.strip_prompt_block(turn.content) if prompts else turn.content
+        prompts, feedback = prompt_engine.parse_reply(turn.content)
+        if feedback:  # "more of / less of" phrases the designer pulled from the user's message
+            prompt_engine.learn_from_reply(turn.chat_id, turn.content)
+        shown = prompt_engine.strip_prompt_block(turn.content) if prompts or feedback else turn.content
         turn.status = "done"
         chats.update_message(
             turn.message_id, content=shown, reasoning=turn.reasoning, prompts=prompts, status="done", finished_at=time.time()

@@ -14,6 +14,7 @@ import {
   type KeyStatus,
   type LocalModel,
   type LocalModelsResponse,
+  type PreferencesResponse,
   type Prompt,
   type RuntimeStatus,
   type Settings,
@@ -48,6 +49,7 @@ export const keys = {
   spend: (chatId?: string) => ["spend", chatId ?? "all"] as const,
   localLlm: ["local-llm"] as const,
   claudeCli: ["claude-cli"] as const,
+  preferences: (chatId?: string | null) => ["preferences", chatId ?? "global"] as const,
 }
 
 // ── Settings ───────────────────────────────────────────────────────
@@ -248,6 +250,12 @@ export const useVariations = () =>
       api.post<Job>(`/images/${id}/variations`, b),
   )
 
+export const useRerunPrompt = () =>
+  useStartJob(
+    ({ id, ...b }: { id: string; prompt: string; negative_prompt?: string; count: number; model?: string }) =>
+      api.post<Job>(`/images/${id}/regenerate`, b),
+  )
+
 export function useCancelJob() {
   const qc = useQueryClient()
   return useMutation({
@@ -304,10 +312,17 @@ function useImageMutation<T, R>(fn: (vars: T) => Promise<R>) {
   })
 }
 
-export const useToggleFavorite = () =>
-  useImageMutation(({ id, favorite }: { id: string; favorite: boolean }) =>
-    api.patch<ImageItem>(`/images/${id}`, { favorite }),
-  )
+export function useToggleFavorite() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, favorite }: { id: string; favorite: boolean }) => api.patch<ImageItem>(`/images/${id}`, { favorite }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["images"] })
+      qc.invalidateQueries({ queryKey: ["image"] })
+      qc.invalidateQueries({ queryKey: ["preferences"] })
+    },
+  })
+}
 
 export const useSetPrimary = () =>
   useImageMutation(({ id, childId }: { id: string; childId: string | null }) =>
@@ -414,6 +429,24 @@ export const useFeedback = () =>
     api.post<FeedbackEvent>("/feedback", body),
   (_r, vars, qc) => {
     if (vars.chat_id) qc.invalidateQueries({ queryKey: keys.chat(vars.chat_id) })
+    qc.invalidateQueries({ queryKey: ["preferences"] }) // the designer learns from every reaction
   })
 
 export const openChat = (id: string) => api.post(`/chats/${id}/open`).catch(() => undefined)
+
+// ── Learned preferences ────────────────────────────────────────────
+
+export const usePreferences = (chatId?: string | null) =>
+  useQuery({
+    queryKey: keys.preferences(chatId),
+    queryFn: () => api.get<PreferencesResponse>(`/preferences${chatId ? `?chat_id=${chatId}` : ""}`),
+  })
+
+export function useClearPreferences() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ chatId, global }: { chatId?: string | null; global?: boolean }) =>
+      api.del<PreferencesResponse>(global ? "/preferences?scope=global" : `/preferences?chat_id=${chatId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["preferences"] }),
+  })
+}

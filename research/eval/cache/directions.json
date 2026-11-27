@@ -1,0 +1,347 @@
+{
+  "geo-saas/old": [
+    {
+      "concept": "Stacked terrain layers",
+      "style": "flat geometric vector",
+      "prompt": "Flat geometric vector logo mark of three stacked parallelogram slabs in an isometric offset, each slab slightly narrower than the one below, forming a stepped terrain block that suggests layered map data. The top slab is deep teal #0F766E, the middle slab slate #334155, and the base slab pale mint #99F6E4, with equal gaps between them. Centered on a plain white background with generous padding, no text."
+    },
+    {
+      "concept": "Four-tile city plan with one lifted parcel",
+      "style": "negative space geometric",
+      "prompt": "Negative space logo mark of a rounded square split into a two-by-two arrangement of tiles separated by thin white gutters, with the bottom-right tile pulled diagonally outward to read as a selected parcel on a city plan. The square is ink navy #1E3A5F and the lifted tile is bright cyan #06B6D4. Centered on a plain white background with generous padding, no text."
+    },
+    {
+      "concept": "Contour peak around a survey point",
+      "style": "line mark",
+      "prompt": "Line mark of three nested contour loops drawn as uneven rounded triangles that tighten toward a single solid dot, like a topographic peak on a survey map. The loops use an even heavy stroke in deep teal #0F766E and the center dot is amber #F59E0B. Centered on a plain white background with generous padding, no text."
+    }
+  ],
+  "geo-saas/new": [
+    {
+      "concept": "Stacked Map Layers",
+      "style": "flat vector, two tones",
+      "prompt": "Abstract app icon: three isometric rounded rhombus slabs stacked vertically, each offset one step to the right, with a single small square cutout at the center of the top slab. Rounded geometric, corner radius about 10 percent of slab width, flat straight edges, gaps of one unit between slabs, flat vector, two tones. Survey Teal #0B5563, Contour Green #2BAF7E. No text.",
+      "brief": {
+        "concept": "Stacked Map Layers",
+        "mark_type": "abstract",
+        "format": "app icon",
+        "subject": "three isometric rounded rhombus slabs stacked vertically, each offset one step to the right, with a single small square cutout at the center of the top slab",
+        "composition": "centered in a rounded-square app tile, one element filling about 70 percent of tile width, equal padding on all sides, no secondary elements",
+        "shape_language": "rounded geometric, corner radius about 10 percent of slab width, flat straight edges, gaps of one unit between slabs",
+        "style": "flat vector, two tones",
+        "palette": [
+          {
+            "name": "Survey Teal",
+            "hex": "#0B5563"
+          },
+          {
+            "name": "Contour Green",
+            "hex": "#2BAF7E"
+          }
+        ],
+        "background": "#F4F7F6",
+        "text": "",
+        "avoid": [
+          "gradients",
+          "drop shadows",
+          "3D lighting",
+          "hairline edges under 4 percent of width"
+        ]
+      }
+    },
+    {
+      "concept": "Contour Benchmark Rings",
+      "style": "flat vector, two colors",
+      "prompt": "Abstract logo: three concentric open rings, each broken by a gap at the upper right, surrounding a solid square at the center like contour lines around a survey benchmark. Circular arcs with flat-cut ends, uniform stroke about 6 percent of canvas width, sharp-cornered center square, flat vector, two colors. Ink Navy #1B2A41, Survey Orange #E8833A. No text.",
+      "brief": {
+        "concept": "Contour Benchmark Rings",
+        "mark_type": "abstract",
+        "format": "logo",
+        "subject": "three concentric open rings, each broken by a gap at the upper right, surrounding a solid square at the center like contour lines around a survey benchmark",
+        "composition": "centered on a square canvas, symmetric about the vertical axis, clear space of one ring width on every side, exactly four elements",
+        "shape_language": "circular arcs with flat-cut ends, uniform stroke about 6 percent of canvas width, sharp-cornered center square",
+        "style": "flat vector, two colors",
+        "palette": [
+          {
+            "name": "Ink Navy",
+            "hex": "#1B2A41"
+          },
+          {
+            "name": "Survey Orange",
+            "hex": "#E8833A"
+          }
+        ],
+        "background": "white",
+        "text": "",
+        "avoid": [
+          "gradients",
+          "filled rings",
+          "more than three rings",
+          "letterforms"
+        ]
+      }
+    },
+    {
+      "concept": "Quadrant Footprint Square",
+      "style": "flat vector, two tones",
+      "prompt": "Abstract favicon: a square outline divided into a two by two grid with only the top left cell filled solid, reading as a drone capture footprint over one map tile. Sharp-cornered geometric, grid lines at least one twelfth of the square width, no curves, flat vector, two tones. Survey Teal #0B5563, Mist Teal #A8D5CC. No text.",
+      "brief": {
+        "concept": "Quadrant Footprint Square",
+        "mark_type": "abstract",
+        "format": "favicon",
+        "subject": "a square outline divided into a two by two grid with only the top left cell filled solid, reading as a drone capture footprint over one map tile",
+        "composition": "single centered square filling about 80 percent of the canvas, four equal cells, no padding beyond 10 percent per side",
+        "shape_language": "sharp-cornered geometric, grid lines at least one twelfth of the square width, no curves",
+        "style": "flat vector, two tones",
+        "palette": [
+          {
+            "name": "Survey Teal",
+            "hex": "#0B5563"
+          },
+          {
+            "name": "Mist Teal",
+            "hex": "#A8D5CC"
+          }
+        ],
+        "background": "transparent",
+        "text": "",
+        "avoid": [
+          "thin grid lines",
+          "more than four cells",
+          "gradients",
+          "rounded corners"
+        ]
+      }
+    }
+  ],
+  "coffee-wordmark/old": [
+    {
+      "concept": "Retro roundel badge",
+      "style": "flat vector, vintage stamp",
+      "prompt": "Circular badge logo for Ember & Oak with a thick ring outline in deep oak brown #4A2C17, holding a simple flame made of three stacked teardrop shapes in ember orange #C2410C that rises above a single oak leaf. The name Ember & Oak sits in a bold arched slab serif along the top inside the ring, with a small ember orange star at the bottom, centered on a plain white background with generous padding."
+    },
+    {
+      "concept": "Hand-lettered wordmark with ember dot",
+      "style": "hand-drawn brush lettering, warm and textured",
+      "prompt": "Hand-lettered wordmark reading Ember & Oak in a slightly uneven brush script in deep oak brown #4A2C17, with the ampersand drawn as a loose loop that ends in a small glowing dot in ember orange #C2410C. A single hand-drawn underline stroke in mustard #D89B2B runs beneath the words, centered on a plain white background with generous padding."
+    },
+    {
+      "concept": "Negative-space acorn flame",
+      "style": "geometric negative space, flat two-color",
+      "prompt": "Logo mark of a solid acorn in deep oak brown #4A2C17 whose cap has a flame shape cut out in negative space, with a small ember orange #C2410C flame sitting beside it. The name Ember & Oak is set below in widely spaced uppercase retro letters in the same brown, all centered on a plain white background with generous padding."
+    }
+  ],
+  "coffee-wordmark/new": [
+    {
+      "concept": "Hand-lettered brush script",
+      "style": "Hand-lettered, flat, single color",
+      "prompt": "Wordmark logo: The name set in a loose hand-lettered brush script, with the ampersand drawn as one looping stroke that rises slightly above the x-height of the letters. Soft curves with variable stroke weight, thick downstrokes, tapered upstrokes, round stroke ends, Hand-lettered, flat, single color. Espresso brown #3B2418, Ember orange #C4552B. Text: \"Ember & Oak\".",
+      "brief": {
+        "concept": "Hand-lettered brush script",
+        "mark_type": "wordmark",
+        "format": "logo",
+        "subject": "The name set in a loose hand-lettered brush script, with the ampersand drawn as one looping stroke that rises slightly above the x-height of the letters",
+        "composition": "Single line, centered, padding about 20 percent of the cap height on every side, no extra elements",
+        "shape_language": "Soft curves with variable stroke weight, thick downstrokes, tapered upstrokes, round stroke ends",
+        "style": "Hand-lettered, flat, single color",
+        "palette": [
+          {
+            "name": "Espresso brown",
+            "hex": "#3B2418"
+          },
+          {
+            "name": "Ember orange",
+            "hex": "#C4552B"
+          }
+        ],
+        "background": "Solid cream #F5EBDD",
+        "text": "Ember & Oak",
+        "avoid": [
+          "gradients",
+          "thin hairlines",
+          "faux distressed texture",
+          "drop shadows"
+        ]
+      }
+    },
+    {
+      "concept": "Letterpress slab stack",
+      "style": "Vintage wood-type print, flat, two colors",
+      "prompt": "Wordmark logo: The name in a heavy wood-type slab serif, stacked on two lines with Ember on top and & Oak below, both lines set to the same width by adjusting letter spacing. Blunt square serifs, sturdy even stroke weight, sharp corners, slightly condensed letterforms, Vintage wood-type print, flat, two colors. Forest green #24402F, Rust #B4532A. Text: \"Ember & Oak\".",
+      "brief": {
+        "concept": "Letterpress slab stack",
+        "mark_type": "wordmark",
+        "format": "logo",
+        "subject": "The name in a heavy wood-type slab serif, stacked on two lines with Ember on top and & Oak below, both lines set to the same width by adjusting letter spacing",
+        "composition": "Two centered stacked lines, no ornament, even margins around the block, the block roughly square",
+        "shape_language": "Blunt square serifs, sturdy even stroke weight, sharp corners, slightly condensed letterforms",
+        "style": "Vintage wood-type print, flat, two colors",
+        "palette": [
+          {
+            "name": "Forest green",
+            "hex": "#24402F"
+          },
+          {
+            "name": "Rust",
+            "hex": "#B4532A"
+          }
+        ],
+        "background": "Solid cream #F4E9D4",
+        "text": "Ember & Oak",
+        "avoid": [
+          "gradients",
+          "hairline serifs",
+          "3D bevels",
+          "decorative flourishes"
+        ]
+      }
+    },
+    {
+      "concept": "Monoline flame ampersand",
+      "style": "Flat vector, one color",
+      "prompt": "Wordmark logo: The name in a clean rounded geometric sans on one line, where the ampersand is redrawn as a single monoline stroke whose upper terminal curls into a small flame tip. Rounded geometric, uniform monoline stroke with round caps and joins, circular bowls, Flat vector, one color. Charcoal #2B2622, Ember red #D9552B. Text: \"Ember & Oak\".",
+      "brief": {
+        "concept": "Monoline flame ampersand",
+        "mark_type": "wordmark",
+        "format": "logo",
+        "subject": "The name in a clean rounded geometric sans on one line, where the ampersand is redrawn as a single monoline stroke whose upper terminal curls into a small flame tip",
+        "composition": "Single line, centered, slightly open letter spacing, ampersand the same height as the caps, equal padding on all sides",
+        "shape_language": "Rounded geometric, uniform monoline stroke with round caps and joins, circular bowls",
+        "style": "Flat vector, one color",
+        "palette": [
+          {
+            "name": "Charcoal",
+            "hex": "#2B2622"
+          },
+          {
+            "name": "Ember red",
+            "hex": "#D9552B"
+          }
+        ],
+        "background": "White",
+        "text": "Ember & Oak",
+        "avoid": [
+          "gradients",
+          "thin hairlines",
+          "script letterforms",
+          "extra icons"
+        ]
+      }
+    }
+  ],
+  "fintech-icon/old": [
+    {
+      "concept": "Set-aside wedge",
+      "style": "Flat geometric",
+      "prompt": "Flat geometric logo mark for a fintech app icon: a solid deep teal #0F766E circle with one quarter-wedge slice pulled slightly outward and colored warm amber #F5B841, the separated slice reading as money set aside from the whole. Centered with generous padding on a plain white background, with bold shapes that stay legible at 32 px and no text."
+    },
+    {
+      "concept": "Ledger page with check",
+      "style": "Negative space flat vector",
+      "prompt": "Negative space logo mark for a fintech app icon: a tall rounded ledger page built from one solid navy #1E3A5F shape, with three short horizontal lines cut out of it and a bold emerald #10B981 check mark sitting over the lower corner. Centered with generous padding on a plain white background, simple enough to read at 32 px."
+    },
+    {
+      "concept": "Progress ring",
+      "style": "Monoline line mark",
+      "prompt": "Line mark logo for a fintech app icon: a single thick rounded stroke drawn as a three-quarter open circle in deep indigo #3B4BA8, with a solid round dot at the open end where the stroke terminates. Minimal monoline geometric style, centered with generous padding on a plain white background, clean enough to read at 32 px."
+    }
+  ],
+  "fintech-icon/new": [
+    {
+      "concept": "Set-aside slice",
+      "style": "flat vector, two colors",
+      "prompt": "Abstract app icon: a solid circle divided into a large wedge and one smaller wedge pulled slightly outward from the center, the small wedge standing for the share set aside for taxes. Geometric, straight-edged wedges inside a clean circle silhouette, no outlines, flat vector, two colors. deep teal #1F5C5A, warm amber #E9A23B. No text.",
+      "brief": {
+        "concept": "Set-aside slice",
+        "mark_type": "abstract",
+        "format": "app icon",
+        "subject": "a solid circle divided into a large wedge and one smaller wedge pulled slightly outward from the center, the small wedge standing for the share set aside for taxes",
+        "composition": "single centered symbol filling about 70 percent of the square so it survives the OS corner mask, the pulled wedge offset to the upper right, no other elements",
+        "shape_language": "geometric, straight-edged wedges inside a clean circle silhouette, no outlines",
+        "style": "flat vector, two colors",
+        "palette": [
+          {
+            "name": "deep teal",
+            "hex": "#1F5C5A"
+          },
+          {
+            "name": "warm amber",
+            "hex": "#E9A23B"
+          }
+        ],
+        "background": "solid #F5F1E8",
+        "text": "",
+        "avoid": [
+          "gradients",
+          "thin hairlines",
+          "drop shadows",
+          "any text or numerals"
+        ]
+      }
+    },
+    {
+      "concept": "Ledger line L",
+      "style": "flat vector, two colors",
+      "prompt": "Lettermark app icon: a bold capital L whose horizontal foot ends in a small filled circle, reading as a ledger line finished with a coin. Heavy geometric sans, square terminals, uniform stroke weight, circle diameter matching the stroke width, flat vector, two colors. ink navy #1E2F4D, mint #4FBF9F. Text: \"L\".",
+      "brief": {
+        "concept": "Ledger line L",
+        "mark_type": "lettermark",
+        "format": "app icon",
+        "subject": "a bold capital L whose horizontal foot ends in a small filled circle, reading as a ledger line finished with a coin",
+        "composition": "single centered letter filling about 65 percent of the square, the circle sitting on the baseline at the right end of the foot, no other elements",
+        "shape_language": "heavy geometric sans, square terminals, uniform stroke weight, circle diameter matching the stroke width",
+        "style": "flat vector, two colors",
+        "palette": [
+          {
+            "name": "ink navy",
+            "hex": "#1E2F4D"
+          },
+          {
+            "name": "mint",
+            "hex": "#4FBF9F"
+          }
+        ],
+        "background": "solid #F4F7F6",
+        "text": "L",
+        "avoid": [
+          "serifs",
+          "gradients",
+          "more than one letter",
+          "hairline strokes"
+        ]
+      }
+    },
+    {
+      "concept": "Umbrella over coins",
+      "style": "flat vector, two colors",
+      "prompt": "Pictorial app icon: a rounded umbrella canopy shielding a short stack of three coins, the canopy a simple semicircle with three scalloped bumps along its lower edge and a short straight handle. Rounded geometric, soft corners, built from circles, one semicircle and flat rounded rectangles, flat vector, two colors. midnight blue #24415E, coral #E8775A. No text.",
+      "brief": {
+        "concept": "Umbrella over coins",
+        "mark_type": "pictorial",
+        "format": "app icon",
+        "subject": "a rounded umbrella canopy shielding a short stack of three coins, the canopy a simple semicircle with three scalloped bumps along its lower edge and a short straight handle",
+        "composition": "single centered group, canopy in the top half and coin stack in the bottom half, symmetrical about the vertical axis, filling about 70 percent of the square",
+        "shape_language": "rounded geometric, soft corners, built from circles, one semicircle and flat rounded rectangles",
+        "style": "flat vector, two colors",
+        "palette": [
+          {
+            "name": "midnight blue",
+            "hex": "#24415E"
+          },
+          {
+            "name": "coral",
+            "hex": "#E8775A"
+          }
+        ],
+        "background": "solid #FBF8F3",
+        "text": "",
+        "avoid": [
+          "gradients",
+          "fine ribs or spokes on the canopy",
+          "text",
+          "soft shadows"
+        ]
+      }
+    }
+  ]
+}

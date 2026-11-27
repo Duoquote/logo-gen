@@ -46,6 +46,9 @@ class Settings(BaseModel):
     aspect_ratio: str = "1:1"
     transparent_background: bool = False
 
+    # Learned preferences: also keep a taste profile across chats and use it as a weak hint.
+    use_global_taste: bool = True
+
     # Limits: the most images one model may make in a single request.
     max_images_cloud: int = Field(default=8, ge=1, le=100)
     max_images_local: int = Field(default=16, ge=1, le=200)

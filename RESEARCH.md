@@ -1,6 +1,11 @@
 # AI Logo Generation: Comprehensive Research Report
 ## March 2026 - State of the Art
 
+> Prompting advice in this file is from March 2026. Sections 3, 4 and 6 were rewritten in November 2026 to match
+> [research/prompting-2026.md](research/prompting-2026.md), which has a per-model table with sources. Where the two
+> disagree, the newer file wins. The model rankings and prices in section 1 are also from March and have moved since;
+> the app's Models page shows the live catalog.
+
 ---
 
 ## 1. Image Generation Models for Logos
@@ -114,123 +119,45 @@ ComfyUI is a node-based visual workflow engine supporting SD 1.x, 2.x, SDXL, Flu
 
 ## 3. Prompt Engineering for Logos
 
-### Core Principles
-1. **Be specific**: "minimalist geometric fox logo" > "fox logo"
-2. **Specify style**: "flat design", "vector style", "clean lines", "simple shapes"
-3. **Name the logo type**: "mascot logo", "wordmark", "lettermark", "emblem", "abstract mark"
-4. **Include background**: "solid white background", "transparent background"
-5. **Add negative terms**: "no shadows", "no gradients", "no text", "no background clutter"
-6. **Iterate one variable at a time**
+Rewritten in November 2026. Details and sources: [research/prompting-2026.md](research/prompting-2026.md).
 
-### Prompt Structure Template
-```
-[logo type], [style modifiers], [subject/concept], [color specification],
-[background], [additional qualities]
-```
+### What changed since March
+- Almost every model we offer reads prompts with an LLM or VLM encoder (Qwen3, Mistral 3, Gemini, GPT). They want a short brief in plain sentences, not a keyword list. Keyword prompts only suit CLIP models (SD-Turbo, SDXL).
+- Quality tags ("masterpiece", "8k", "trending") don't help outside booru-tag fine-tunes. BFL says to leave them out.
+- No OpenRouter image model takes a negative prompt, and the distilled local models (Z-Image Turbo, FLUX.2 klein, FLUX.1 schnell, SD-Turbo) run at guidance 0 or 1, where negatives do nothing. So "add negative terms" from the old list only applies to SDXL-style models with real CFG.
+- Negation in the prompt: a Nov 2026 benchmark (T2I-NSI) found "no X" almost never inverts, but it often fails to suppress X. Say the positive version first ("flat solid fills") and, on LLM-encoder models, add one short "No x, no y." clause at the end. Google and BFL ask for positive phrasing only. On CLIP-only models, don't name the thing at all.
+- Recraft V4 and V4.1 ignore the curated `style`/`substyle` parameters, so the style has to be in the prompt. The palette and background can go in as RGB `controls`, which OpenRouter passes through.
+- Transparency is a request parameter, not a prompt word (GPT Image, Seedream 5.x, Riverflow 2.5+, MAI 2.7). Elsewhere ask for a plain white background and remove it afterwards.
 
-### Example Prompts by Style
+### How logo-gen writes prompts now
+The designer writes a model-agnostic brief per direction (mark type, subject, composition, shape language, palette with hex, style, background, exact text or none, what to avoid). A renderer per prompt style turns it into the prompt each model reads best, using the profiles in `src/logo_gen/prompting/profiles.py`:
 
-**Minimalist:**
-```
-Minimalist vector logo, simple geometric shapes, [concept],
-flat design, clean lines, solid [color] background, professional, scalable
-```
+| Style | Models | Shape of the prompt |
+|---|---|---|
+| structured | GPT Image, Muse, Riverflow, Ideogram | Labeled lines: subject, style, colors, composition, background, text, constraints |
+| natural | FLUX.2 and FLUX 3, Gemini, Seedream, Qwen, Z-Image, others | One paragraph: medium and mark first, then shapes, colors tied to elements, text, placement |
+| recraft | Recraft | Short, general to specific, "flat colors only, no ...", plus RGB controls |
+| keywords | SD-Turbo, SDXL | Up to 25 comma-separated phrases, subject first, color names instead of hex |
+| tags | Illustrious, NoobAI, Pony | Danbooru tags with quality tags and a negative prompt |
 
-**Mascot:**
-```
-Mascot logo, friendly [animal/character], [brand personality],
-vibrant colors, clean outline, white background, sports team style
-```
-
-**Wordmark:**
-```
-Typography logo, the word "[TEXT]", geometric sans-serif,
-modern lettering, [color] on white, professional brand identity
-```
-
-**Abstract Mark:**
-```
-Abstract geometric logo mark, [concept metaphor],
-gradient [color1] to [color2], minimalist, modern, tech company aesthetic
-```
-
-### Key Style Keywords
-- **Clean/Professional**: minimalist, clean lines, flat design, vector, simple
-- **Modern**: geometric, abstract, gradient, futuristic, tech
-- **Classic**: timeless, elegant, serif, emblem, traditional
-- **Playful**: colorful, friendly, rounded, cartoon, vibrant
-
-### Midjourney-Specific Parameters
-- Always use `--ar 1:1` for square logos
-- Add `--style raw` for cleaner output
-- Use `--no shading detail realistic` for flat designs
-- Reference designers: Massimo Vignelli, Paul Rand, Sagi Haviv
-
-### Harrlogos XL Prompt Format
-```
-"[TEXT] text logo", [color], [style modifier]
-```
-Colors: blue, teal, gold, rainbow, red, orange, white, cyan, purple, green, yellow, grey, silver, black
-Styles: dripping, graffiti, tattoo, anime, pixel art, 8-bit, metal, neon, 3D, comic book, 80s
+### Words that still matter
+- "logo" sets the genre everywhere, but can pull in mockups (business cards, signage). Add "a single mark, nothing else in frame".
+- "app icon" tends to produce a glossy tile. Fine for app icons, wrong for a bare mark.
+- "minimalist" is vague. Give the count instead: "two shapes, one color".
+- "favicon" is a weak signal. Describe the property: "bold enough to read at 16 px".
+- "vector" helps on Recraft and OpenAI. BFL's docs never use it; FLUX 3 gets "flat-color graphic".
 
 ---
 
 ## 4. LLM-based Prompt Enhancement
 
-### Approaches
+The March plan was one LLM call that writes finished image prompts. That's what logo-gen did until November 2026, and it was the main reason results looked generic: one prompt style for every model, negations sent to models that can't use them, and no way to learn from what the user liked.
 
-**Direct LLM Enhancement Pipeline:**
-1. User provides simple description: "tech startup called Nova"
-2. LLM generates detailed image generation prompt
-3. Image model generates logos from enhanced prompt
+Now it's two steps:
+1. The chat model writes design briefs (see section 3). It doesn't know or care which image model runs them.
+2. Code renders each brief per model, from data. Adding a model means adding a profile, not changing the designer prompt.
 
-**System Prompt Template for Logo Prompt Enhancement:**
-```
-You are a logo design expert. Given a brand description, generate optimized
-prompts for AI image generation. Include:
-- Logo type (wordmark, symbol, combination mark, etc.)
-- Style (minimalist, modern, vintage, etc.)
-- Color palette with specific hex codes
-- Symbolic elements that represent the brand
-- Background specification
-- Technical quality terms (vector, clean lines, scalable)
-Generate 5 prompt variations exploring different design directions.
-```
-
-### Tools & Integrations
-
-**ComfyUI Nodes:**
-- `comfyui-llm-prompt-enhancer` (pinkpixel-dev)
-  - Providers: OpenAI, Anthropic, Google, OpenRouter, Ollama
-  - 50+ artistic styles in 8 categories
-  - Seamless CLIP text encoder integration
-- `Plush-for-ComfyUI` - Advanced Prompt Enhancer (APE)
-  - Connects to ChatGPT, Claude, Groq, open-source LLMs
-- `Local_LLM_Prompt_Enhancer` - Local LLMs via LM Studio/Ollama
-
-**Standalone Tools:**
-- Claude's built-in Prompt Improver (docs.claude.com)
-- PromptPerfect (promptperfect.jina.ai) - Multi-model optimization
-- Apify LLM Prompt Enhancer - Batch prompt improvement
-
-### Multi-Stage Enhancement Pattern
-```
-Stage 1: Brand Analysis (LLM)
-  Input: "Tech startup called Nova, does cloud computing"
-  Output: Brand attributes, target audience, personality traits
-
-Stage 2: Design Direction (LLM)
-  Input: Brand analysis
-  Output: 3-5 design directions with rationale
-
-Stage 3: Prompt Generation (LLM)
-  Input: Selected direction
-  Output: Optimized prompts for specific image model (Flux/SDXL/etc.)
-
-Stage 4: Negative Prompt (LLM)
-  Input: Design direction
-  Output: Negative prompt to exclude unwanted elements
-```
+Feedback goes into a per-chat preference profile (likes, dislikes, picks, favorites, and "more of / less of" phrases the designer pulls from the user's messages). The designer reads a short summary of it before writing new briefs, and the renderer adds the user's own "less of" phrases to the exclusions. See `src/logo_gen/prompting/preferences.py`.
 
 ---
 
@@ -290,39 +217,19 @@ vtracer.convert_image_to_svg_py(
 
 ## 6. Text in Logos
 
-### Model Ranking for Text Rendering
-1. **Ideogram 3.0** - 90%+ accuracy, complex multi-line layouts
-2. **Reve** - Trained on 50M+ font samples
-3. **Seedream 4.5** - Rivals Ideogram's text quality
-4. **Flux 2** - Reliable for signs, logos, UI text
-5. **GPT Image 1.5** - Good with multimodal prompting
-6. **SD 3.5** - Improved MMDiT architecture helps
-7. **Midjourney V8** - Decent but inconsistent
+Updated in November 2026. Details: [research/prompting-2026.md](research/prompting-2026.md).
 
-### Techniques for Better Text
+### Who can draw text (models we offer)
+- Strong: GPT Image (quote it, spell odd names letter by letter), Gemini 3.x image, Qwen Image, Seedream 5.x, FLUX.2 pro/max and FLUX 3, Recraft V4.x, Z-Image Turbo (English and Chinese).
+- Fair: FLUX.2 klein (the model card says text "may be inaccurate"), FLUX.1 schnell, Hunyuan, Grok Imagine, Muse (varies run to run).
+- None: SD-Turbo. Never ask it for words, and don't write "no text" either.
+- Ideogram is still the reference for text, but OpenRouter doesn't offer it right now.
 
-**Prompt Techniques:**
-- Use quotes around desired text: `the word "NOVA"`
-- Specify typography: "geometric sans-serif", "bold serif"
-- Be specific: "all caps", "lowercase", "italic"
-- Font weight: "thin", "regular", "bold", "black"
-
-**LoRA-Based Text:**
-- Harrlogos XL: SDXL LoRA for custom text
-  - Prompt: `"WORD text logo", color, style`
-  - Best with single words, multi-word is harder
-  - Works at 1024x1024 resolution
-
-**Post-Generation Text Addition:**
-- Generate logo symbol without text
-- Add text separately using Pillow/Cairo with actual fonts
-- Composite in Python for perfect typography control
-- This hybrid approach is often the most reliable
-
-### Typography-Specific Prompt Keywords
-- Specify type category: "geometric sans-serif" activates specific model outputs
-- Include spacing: "letter-spaced", "tight tracking", "wide kerning"
-- Reference style: "Helvetica-style", "Futura-inspired"
+### Techniques
+- Quote the exact wording, say where it goes, and describe the lettering (weight, case, serif or sans).
+- Keep it to the name. Taglines and small text are where every model still slips.
+- On Seedream and GPT Image, end with "no other text".
+- For marks that must be pixel-perfect, generate the symbol and set the name in a real font afterwards. That hybrid approach is still the most reliable.
 
 ---
 

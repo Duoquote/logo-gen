@@ -1,0 +1,42 @@
+## openai/gpt-image-1-mini [gpt-image, structured]
+Design a logo symbol, an original mark.
+Subject: a map pin whose inner space is filled with three stacked contour lines.
+Style: flat vector; two colors; rounded geometric, even 3 px monoline strokes; flat solid colors; sturdy line weight. Clean vector-like shapes, a strong silhouette, balanced negative space.
+Colors: deep teal #0F766E and warm amber #F59E0B only.
+Composition: single symbol, vertically symmetric; a single mark, centered, generous even padding, nothing else in frame.
+Background: plain white, filling the whole canvas.
+Text: none. No text, letters or numbers anywhere.
+Constraints: No gradients, no thin hairlines.
+It must read clearly at 32 px, so keep the shapes bold and the details few.
+PARAMS: {"output_format": "png", "quality": "medium"}
+
+## google/gemini-2.5-flash-image [gemini-image, natural]
+A flat vector logo symbol of a map pin whose inner space is filled with three stacked contour lines. Two colors, rounded geometric, even 3 px monoline strokes. Main shapes in deep teal #0F766E, accents in warm amber #F59E0B. Flat solid colors, sturdy line weight. Single symbol, vertically symmetric. A single mark, centered with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. The mark is a pure pictorial symbol.
+
+## recraft/recraft-v4.1-flash [recraft, recraft]
+Flat vector logo symbol of a map pin whose inner space is filled with three stacked contour lines. Two colors, rounded geometric, even 3 px monoline strokes. Main shapes in deep teal #0F766E, accents in warm amber #F59E0B. Flat colors only, one unified silhouette, no gradients, no shadows, no texture, no thin hairlines. Single symbol, vertically symmetric. A single mark, centered with generous even padding, on a plain white background, nothing else in frame. No text.
+PARAMS: {"provider": {"options": {"recraft": {"controls": {"background_color": {"rgb": [255, 255, 255]}, "colors": [{"rgb": [15, 118, 110]}, {"rgb": [245, 158, 11]}]}}}}}
+
+## black-forest-labs/flux.2-klein-4b [flux-2-klein, natural]
+A flat vector logo symbol of a map pin whose inner space is filled with three stacked contour lines. Two colors, rounded geometric, even 3 px monoline strokes. Main shapes in deep teal #0F766E, accents in warm amber #F59E0B. Flat solid colors, sturdy line weight. Single symbol, vertically symmetric. A single mark, centered with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No text, no gradients, no thin hairlines.
+PARAMS: {"output_format": "png"}
+
+## black-forest-labs/flux-3-image-klein [flux-3, natural]
+A flat-color graphic logo symbol of a map pin whose inner space is filled with three stacked contour lines. Two colors, rounded geometric, even 3 px monoline strokes. Main shapes in deep teal #0F766E, accents in warm amber #F59E0B. Flat solid colors, sturdy line weight. Single symbol, vertically symmetric. A single mark, centered with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. Symbol only.
+PARAMS: {"provider": {"options": {"black-forest-labs": {"grounding": false}}}}
+
+## bytedance-seed/seedream-5-5 [seedream, natural]
+A flat vector logo symbol of a map pin whose inner space is filled with three stacked contour lines. Two colors, rounded geometric, even 3 px monoline strokes. Main shapes in deep teal #0F766E, accents in warm amber #F59E0B. Flat solid colors, sturdy line weight. Single symbol, vertically symmetric. A single mark, centered with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No text, no gradients, no thin hairlines.
+PARAMS: {"output_format": "png", "resolution": "1K"}
+
+## local/zimage-turbo [z-image-turbo, natural]
+A flat vector logo symbol of a map pin whose inner space is filled with three stacked contour lines. Two colors, rounded geometric, even 3 px monoline strokes. Main shapes in deep teal #0F766E, accents in warm amber #F59E0B. Flat solid colors, sturdy line weight. Single symbol, vertically symmetric. A single mark, centered with generous even padding, on a plain white background, nothing else in frame. Bold, simple shapes that read clearly at small sizes. No text, no gradients, no thin hairlines.
+PARAMS: {"guidance": 0.0, "steps": 9}
+
+## local/sd-turbo [sd-turbo, keywords]
+flat vector logo icon, map pin inner space filled with three stacked contour, teal and amber, flat vector, rounded geometric, white background, centered, simple
+PARAMS: {"guidance": 0.0, "steps": 2}
+
+## someone/illustrious-xl-v2 [booru-tags, tags]
+masterpiece, best quality, logo, symbol, flat color, vector, simple background, white background, no humans, map pin inner space filled, three stacked contour lines, teal theme, amber theme, limited palette, centered
+NEGATIVE: worst quality, low quality, lowres, text, signature, watermark, jpeg artifacts, photorealistic, 3d, gradient background, gradients, thin hairlines

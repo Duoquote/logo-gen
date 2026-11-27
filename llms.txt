@@ -1,6 +1,6 @@
 # logo-gen
 
-> A local web app for making logo marks and app icons with image models. A chat model writes a few distinct prompt directions from a brief, and image models render them: cloud models through OpenRouter, or local diffusion models on your own GPU. It runs on your machine with a web UI and a JSON HTTP API on `http://127.0.0.1:7860`.
+> A local web app for making logo marks and app icons with image models. A chat model writes a few distinct design briefs from your description, each image model gets the brief rewritten in the prompt style it reads best, and the models render them: cloud models through OpenRouter, or local diffusion models on your own GPU. It runs on your machine with a web UI and a JSON HTTP API on `http://127.0.0.1:7860`.
 
 Start it from the project folder. The first run sets up `uv`, `.venv` and the frontend (about a minute); later runs take a few seconds. It prints the URL when it's ready:
 
@@ -36,14 +36,17 @@ Every long operation is a job: `POST` returns the job, then poll `GET /api/jobs/
 
 Other calls you'll need:
 
-- Your own prompts: `POST /api/generate` with `{"prompts": [{"prompt": "...", "concept": "short name", "style": ""}], "models": ["recraft/recraft-v4.1-flash"], "images_per_prompt": 2}`. Leave `models` out to use the ones in settings.
+- Your own prompts: `POST /api/generate` with `{"prompts": [{"prompt": "...", "concept": "short name", "style": ""}], "models": ["recraft/recraft-v4.1-flash"], "images_per_prompt": 2}`. Leave `models` out to use the ones in settings. A plain `prompt` gets light logo framing per model. Pass a `brief` (the object the designer writes, see below) instead and each model gets its own prompt; add `"verbatim": true` to send `prompt` exactly as written, or `"overrides": {"<model id>": {"prompt": "..."}}` for one model.
+- What each model will be sent, without generating: `POST /api/prompts/render` with the same `prompts` and `models`. `GET /api/prompts/profiles` lists the per-model prompt profiles and which one each model uses.
+- Every image keeps what was actually sent: `prompt` is the exact text, plus `negative_prompt`, `params` (the extra request options), `profile` and the `brief`. `POST /api/images/<id>/regenerate` with `{"prompt": "...", "count": 2}` runs an edited prompt on the same model (a job; results become children of the image).
 - Variations of an image: `POST /api/images/<id>/variations` with `{"count": 4, "mode": "remix"}` (new prompts close to the original) or `"reroll"` (same prompt, new seeds). It's a job.
 - Upscale: `POST /api/images/<id>/upscale` with `{"method": "lanczos", "scale": 2}`. Methods: `lanczos` (fast, CPU), `realesrgan-anime` and `realesrgan-general` (need local model support; minutes per image on a CPU). Returns the new image right away, not a job.
 - Remove the background: `POST /api/images/<id>/remove-background` with `{"method": "ai"}` (rembg, CPU is fine) or `{"method": "color", "tolerance": 30}` (keys out the corner color). Returns the new image.
 - Upscales and background removals are kept as children of the original. `PUT /api/images/<id>/primary` with `{"child_id": "..."}` marks the version to use.
 - Models: `GET /api/openrouter/models` (the live catalog with prices, cached 10 minutes), `GET /api/models/rankings` (quality, value and popularity per image model), `GET /api/local-models`.
 - Local models: `POST /api/local-models/<id>/install` (download with progress in `GET /api/local-models`), `/cancel`, `DELETE /api/local-models/<id>`, and `POST /api/local-models/<id>/calibrate` for a speed test (a job). Use a local model as `local/<id>`, for example `local/zimage-turbo`.
-- The designer chat: `POST /api/chats`, then `POST /api/chats/<id>/messages` with `{"content": "..."}`. The reply runs on the server; follow it with `GET /api/chats/<id>/messages/<reply_id>/stream` (server-sent events) or poll `GET /api/chats/<id>` until no message has `status` `streaming`. Directions it proposes are in that message's `prompts`.
+- The designer chat: `POST /api/chats`, then `POST /api/chats/<id>/messages` with `{"content": "..."}`. The reply runs on the server; follow it with `GET /api/chats/<id>/messages/<reply_id>/stream` (server-sent events) or poll `GET /api/chats/<id>` until no message has `status` `streaming`. Directions it proposes are in that message's `prompts`. Each has `concept`, `style`, a readable `prompt` summary and a `brief` with `mark_type`, `format`, `subject`, `composition`, `shape_language`, `style`, `palette` (`[{"name", "hex"}]`), `background`, `text` (exact wording, or empty for none) and `avoid`. Send them to `POST /api/generate` unchanged.
+- Reactions: `POST /api/feedback` with `{"kind": "like" | "dislike" | "unrate" | "pick", "image_id": "..."}` (`pick` is "use this direction", `unrate` clears a thumbs rating). The designer learns from them and from feedback you type: `GET /api/preferences?chat_id=<id>` shows what it learned and the text it adds to its system prompt, `DELETE /api/preferences?chat_id=<id>` (or `?scope=global`) forgets it.
 
 Spend and caps:
 

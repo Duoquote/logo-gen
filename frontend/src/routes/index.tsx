@@ -6,6 +6,7 @@ import { ImageDialog } from "@/components/image-dialog"
 import { ImageGrid } from "@/components/image-grid"
 import { JobProgress } from "@/components/job-progress"
 import { ImageModelPicker } from "@/components/model-picker"
+import { RenderedPrompts } from "@/components/prompt-details"
 import { ReferenceImages, useReferenceUploads } from "@/components/reference-images"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -158,6 +159,7 @@ function GeneratePage() {
               ))}
             </div>
           )}
+          {job.data.result.rendered && <RenderedPrompts rendered={job.data.result.rendered} />}
           <ImageGrid
             images={jobImages.data ?? []}
             pending={pending}

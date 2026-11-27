@@ -152,6 +152,12 @@ def _migrate(c: sqlite3.Connection) -> None:
     if "primary_id" not in cols:
         # The version of an image the user picked to keep (an upscale or a cleaned copy).
         c.execute("ALTER TABLE images ADD COLUMN primary_id TEXT")
+    # What was actually sent to the model: the rendered prompt is in `prompt`;
+    # these hold the brief it came from, the negative prompt, the request
+    # parameters and the model profile that rendered it.
+    for col, decl in (("brief", "TEXT"), ("negative_prompt", "TEXT DEFAULT ''"), ("params", "TEXT"), ("profile", "TEXT DEFAULT ''")):
+        if col not in cols:
+            c.execute(f"ALTER TABLE images ADD COLUMN {col} {decl}")
     # Spend from before the costs table existed lived only on images.
     if c.execute("SELECT COUNT(*) FROM costs").fetchone()[0] == 0:
         c.execute(
@@ -206,6 +212,12 @@ def _image_dict(r: sqlite3.Row) -> dict:
     d["favorite"] = bool(d["favorite"])
     d["url"] = f"/api/files/{d['path']}"
     d["vector"] = d["media_type"] == "image/svg+xml"
+    for k in ("brief", "params"):
+        if k in d:
+            try:
+                d[k] = json.loads(d[k]) if d[k] else None
+            except json.JSONDecodeError:
+                d[k] = None
     return d
 
 
@@ -213,6 +225,9 @@ def add_image(path: Path, kind: str, **meta: Any) -> dict:
     image_id = uuid.uuid4().hex[:16]
     width = height = None
     media_type = meta.pop("media_type", None) or ("image/svg+xml" if path.suffix == ".svg" else "image/png")
+    for k in ("brief", "params"):
+        if isinstance(meta.get(k), (dict, list)):
+            meta[k] = json.dumps(meta[k])
     if media_type != "image/svg+xml":
         try:
             with Image.open(path) as im:

@@ -1,6 +1,5 @@
 import { useState } from "react"
 import {
-  CopyIcon,
   DownloadIcon,
   EraserIcon,
   HeartIcon,
@@ -10,9 +9,9 @@ import {
   StarIcon,
   Trash2Icon,
 } from "lucide-react"
-import { toast } from "sonner"
 
 import { JobProgress } from "@/components/job-progress"
+import { PromptDetails } from "@/components/prompt-details"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -231,16 +230,6 @@ function ImageDetailView({
             <HeartIcon className={cn(img.favorite && "fill-current text-primary")} />
             {img.favorite ? "Favorite" : "Add to favorites"}
           </Button>
-          {img.prompt && (
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Copy prompt"
-              onClick={() => navigator.clipboard.writeText(img.prompt).then(() => toast.success("Prompt copied"))}
-            >
-              <CopyIcon />
-            </Button>
-          )}
           <Button
             size="icon-sm"
             variant="ghost"
@@ -255,7 +244,7 @@ function ImageDetailView({
           </Button>
         </div>
 
-        {img.prompt && <p className="text-xs leading-relaxed text-muted-foreground">{img.prompt}</p>}
+        <PromptDetails key={img.id} img={img} />
 
         <Separator />
 

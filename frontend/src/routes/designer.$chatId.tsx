@@ -7,6 +7,7 @@ import { AssistantMessage, Directions, UserMessage, type MessageHandlers } from 
 import { Composer, type ComposerHandle } from "@/components/chat/composer"
 import { Outputs } from "@/components/chat/outputs"
 import { ImageDialog } from "@/components/image-dialog"
+import { LearnedButton } from "@/components/learned-panel"
 import { SpendLine } from "@/components/spend"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
@@ -146,6 +147,7 @@ function ChatPage() {
             <SpendLine spend={data.spend} label="This chat" />
           </span>
         )}
+        {data && <LearnedButton chatId={data.id} />}
       </header>
 
       <div className="relative min-h-0 flex-1">

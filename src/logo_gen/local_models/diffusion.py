@@ -17,8 +17,6 @@ _lock = threading.Lock()
 _pipe = None
 _pipe_id: str | None = None
 
-PROMPT_SUFFIX = " Centered on a plain white background, flat vector logo icon, no text."
-
 
 def _torch():
     import torch
@@ -126,38 +124,54 @@ def _free(torch) -> None:
         torch.cuda.empty_cache()
 
 
-def _run(pipe, spec: LocalModel, prompts: list[str], seeds: list[int], on_step, should_stop) -> list[Image.Image]:
-    """One pipeline call: one image per (prompt, seed) pair."""
+def _run(
+    pipe, spec: LocalModel, prompts: list[str], seeds: list[int], on_step, should_stop,
+    negatives: list[str] | None = None, options: dict | None = None,
+) -> list[Image.Image]:
+    """One pipeline call: one image per (prompt, seed) pair.
+
+    Prompts arrive fully written (prompting/render.py adds the logo framing).
+    `options` can override steps, guidance and resolution from the model's
+    prompt profile. Negative prompts are only passed when guidance is on,
+    because distilled models at guidance 0 or 1 ignore them anyway.
+    """
+    options = options or {}
+    steps = int(options.get("steps") or spec.steps)
+    guidance = float(options.get("guidance", spec.guidance))
+    size = int(options.get("resolution") or spec.resolution)
     torch = _torch()
     # CPU generators give the same image for a seed on every device.
     generators = [torch.Generator("cpu").manual_seed(int(s)) for s in seeds]
 
     def callback(p, step: int, timestep, kwargs):
-        on_step(step + 1, spec.steps)
+        on_step(step + 1, steps)
         if should_stop():
             p._interrupt = True
         return kwargs
 
     kwargs = dict(
-        prompt=[p + PROMPT_SUFFIX for p in prompts],
-        num_inference_steps=spec.steps,
-        guidance_scale=spec.guidance,
-        height=spec.resolution,
-        width=spec.resolution,
+        prompt=list(prompts),
+        num_inference_steps=steps,
+        guidance_scale=guidance,
+        height=size,
+        width=size,
         num_images_per_prompt=1,
         generator=generators,
         callback_on_step_end=callback,
     )
+    if negatives and guidance > 1.0 and any(negatives):
+        kwargs["negative_prompt"] = list(negatives)
     if spec.pipeline == "flux":
         kwargs["max_sequence_length"] = 256
     return list(pipe(**kwargs).images)
 
 
-def _run_stepping_down(pipe, spec, prompts, seeds, on_step, on_status, should_stop) -> list[Image.Image]:
+def _run_stepping_down(pipe, spec, prompts, seeds, on_step, on_status, should_stop, negatives=None, options=None) -> list[Image.Image]:
     """Run a batch; on out-of-memory, free VRAM and retry as two halves, down to one image."""
     torch = _torch()
+    negatives = negatives or [""] * len(prompts)
     try:
-        return _run(pipe, spec, prompts, seeds, on_step, should_stop)
+        return _run(pipe, spec, prompts, seeds, on_step, should_stop, negatives, options)
     except Exception as e:
         if not _is_oom(e):
             raise
@@ -166,10 +180,12 @@ def _run_stepping_down(pipe, spec, prompts, seeds, on_step, on_status, should_st
             raise
         half = len(seeds) // 2
         on_status(f"Out of memory at a batch of {len(seeds)}; retrying in batches of {half}")
-        first = _run_stepping_down(pipe, spec, prompts[:half], seeds[:half], on_step, on_status, should_stop)
+        first = _run_stepping_down(pipe, spec, prompts[:half], seeds[:half], on_step, on_status, should_stop,
+                                   negatives[:half], options)
         if should_stop():
             return first
-        return first + _run_stepping_down(pipe, spec, prompts[half:], seeds[half:], on_step, on_status, should_stop)
+        return first + _run_stepping_down(pipe, spec, prompts[half:], seeds[half:], on_step, on_status, should_stop,
+                                          negatives[half:], options)
 
 
 def _check(model_id: str) -> LocalModel:
@@ -188,13 +204,15 @@ def generate(
     on_step: Callable[[int, int], None],
     on_status: Callable[[str], None],
     should_stop: Callable[[], bool],
+    negatives: list[str] | None = None,
+    options: dict | None = None,
 ) -> list[Image.Image]:
     """Blocking. One image per (prompt, seed) pair, in one batched call when memory allows."""
     spec = _check(model_id)
     with _lock:
         pipe = _get(spec, on_status)
         on_status(f"{spec.name}: generating a batch of {len(seeds)}")
-        images = _run_stepping_down(pipe, spec, prompts, seeds, on_step, on_status, should_stop)
+        images = _run_stepping_down(pipe, spec, prompts, seeds, on_step, on_status, should_stop, negatives, options)
         return [] if should_stop() else images
 
 
