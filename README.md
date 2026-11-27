@@ -140,6 +140,10 @@ All of these are in `.gitignore`. To start over, delete `data/` and `output/`. S
 
 The backend is Python (FastAPI, diffusers, rembg) in `src/logo_gen/`. The frontend is React with TanStack Router and Query and shadcn/ui, in `frontend/`. `RESEARCH.md` and `research/` hold the notes I made about models and prompting before writing it. Tests run with `uv run pytest`.
 
+## For AI agents
+
+If an agent is using logo-gen through its API, point it at [llms.txt](llms.txt) (the full API reference is [llms-full.txt](llms-full.txt)). If it's changing the code, [AGENTS.md](AGENTS.md) has the setup, the checks and the rules. Claude Code picks that up through `CLAUDE.md`.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).

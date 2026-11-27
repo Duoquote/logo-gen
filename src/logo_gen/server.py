@@ -119,11 +119,13 @@ def _refs(rel_paths: list[str] | None) -> list[Path]:
 
 @app.get("/api/health")
 async def health():
+    """Liveness check: {"ok": true}."""
     return {"ok": True}
 
 
 @app.get("/api/system")
 async def system_info():
+    """This machine: OS, device (cuda, mps or cpu), GPU and VRAM, free disk, and library totals."""
     return system.info() | {"library": library.stats()}
 
 
@@ -136,11 +138,13 @@ def _secrets_status() -> dict:
 
 @app.get("/api/settings")
 async def read_settings():
+    """Current settings, plus which secrets are set (never their values)."""
     return {"settings": get_settings().model_dump(), "secrets": _secrets_status()}
 
 
 @app.put("/api/settings")
 async def write_settings(patch: dict[str, Any]):
+    """Change any subset of settings, e.g. {"image_models": [...], "images_per_prompt": 2}. Returns the full settings."""
     s = update_settings(patch)
     return {"settings": s.model_dump(), "secrets": _secrets_status()}
 
@@ -158,6 +162,7 @@ class SecretIn(BaseModel):
 
 @app.put("/api/secrets")
 async def write_secret(body: SecretIn):
+    """Set or clear OPENROUTER_KEY or HF_TOKEN in .env. An OpenRouter key is checked with OpenRouter first."""
     if body.name not in SECRET_KEYS:
         raise HTTPException(400, "Unknown secret")
     if body.name == "OPENROUTER_KEY" and body.value.strip():
@@ -172,11 +177,15 @@ async def write_secret(body: SecretIn):
 
 @app.get("/api/openrouter/key")
 async def openrouter_key():
+    """Whether the saved OpenRouter key works, what it has spent and its limit."""
     return await openrouter.key_status()
 
 
 @app.get("/api/openrouter/models")
 async def openrouter_models(force: bool = False):
+    """The live OpenRouter catalog, split into chat and image models, with prices and capabilities. Cached 10
+    minutes; force=true refetches.
+    """
     data = await openrouter.catalog(force=force)
     return {"fetched_at": data["fetched_at"], "chat": data["chat"], "image": data["image"], "stale": data.get("stale", False)}
 
@@ -234,6 +243,7 @@ _last_refresh = 0.0
 
 @app.get("/api/local-models")
 async def list_local_models():
+    """Local models with install state, download progress, device support, batch size and caps."""
     global _last_refresh
     if time.time() - _last_refresh > manager.REMOTE_TTL:
         _last_refresh = time.time()
@@ -279,6 +289,7 @@ async def install_local_stack():
 
 @app.post("/api/local-models/{model_id}/calibrate")
 async def calibrate_local_model(model_id: str):
+    """Speed test for a local model: times batch sizes and peak VRAM. Returns a job; its result has the options."""
     spec = _spec(model_id)
     if not manager.is_installed(spec):
         raise ValueError(f"Install {spec.name} first.")
@@ -310,21 +321,25 @@ async def calibrate_local_model(model_id: str):
 
 @app.post("/api/local-models/{model_id}/install")
 async def install_local_model(model_id: str):
+    """Start or resume downloading a local model. Progress shows in GET /api/local-models."""
     return manager.start_install(_spec(model_id))
 
 
 @app.post("/api/local-models/{model_id}/cancel")
 async def cancel_local_model(model_id: str):
+    """Pause a download. Installing again resumes it."""
     return await manager.cancel_install(_spec(model_id))
 
 
 @app.delete("/api/local-models/{model_id}")
 async def uninstall_local_model(model_id: str):
+    """Delete a local model's files."""
     return await manager.uninstall(_spec(model_id))
 
 
 @app.post("/api/local-models/{model_id}/check-access")
 async def check_local_model(model_id: str):
+    """For gated models: whether HF_TOKEN can download it."""
     spec = _spec(model_id)
     await manager.access(spec, force=True)
     try:
@@ -339,11 +354,13 @@ async def check_local_model(model_id: str):
 
 @app.get("/api/jobs")
 async def list_jobs():
+    """Recent jobs, newest first."""
     return [j.to_dict() for j in jobs.list()]
 
 
 @app.get("/api/jobs/{job_id}")
 async def get_job(job_id: str):
+    """One job: status (running, done, error, cancelled), done/total, message, image_ids, cost, byok, notes, errors."""
     job = jobs.get(job_id)
     if not job:
         raise _not_found("Job")
@@ -352,6 +369,7 @@ async def get_job(job_id: str):
 
 @app.post("/api/jobs/{job_id}/cancel")
 async def cancel_job(job_id: str):
+    """Cancel a running job."""
     job = jobs.cancel(job_id)
     if not job:
         raise _not_found("Job")
@@ -412,6 +430,7 @@ def _usable(model: str | None) -> bool:
 
 @app.post("/api/generate")
 async def generate(body: GenerateIn):
+    """Render your own prompts with the given (or default) image models. Returns a job."""
     prompts = [p.model_dump() for p in body.prompts if p.prompt.strip()]
     if not prompts:
         raise ValueError("No prompts to generate.")
@@ -432,6 +451,7 @@ async def generate(body: GenerateIn):
 
 @app.post("/api/generate/quick")
 async def quick_generate(body: QuickIn):
+    """Brief in: the chat model writes `count` directions, then each is rendered. Returns a job."""
     brief = body.brief.strip()
     if not brief:
         raise ValueError("Describe what the logo is for.")
@@ -462,6 +482,7 @@ class VariationIn(BaseModel):
 
 @app.post("/api/images/{image_id}/variations")
 async def variations(image_id: str, body: VariationIn):
+    """New images close to this one (mode remix writes new prompts; reroll keeps the prompt with new seeds). Returns a job."""
     img = library.get_image(image_id)
     if not img:
         raise _not_found("Image")
@@ -560,11 +581,13 @@ def _chat_view(chat_id: str) -> dict:
 
 @app.get("/api/chats")
 async def list_chats(q: str | None = None):
+    """Designer chats with at least one message, newest activity first, with spend and a thumbnail. q searches titles and messages."""
     return chats.list_all(q)
 
 
 @app.post("/api/chats")
 async def create_chat(body: ChatIn):
+    """An empty chat."""
     return chats.create(body.title or "")
 
 
@@ -576,11 +599,15 @@ async def last_chat():
 
 @app.get("/api/chats/{chat_id}")
 async def get_chat(chat_id: str):
+    """A chat with the visible branch of messages (each with siblings, cost, status and the images made from it), its
+    jobs, spend, and the id of a reply that's still running.
+    """
     return _chat_view(chat_id)
 
 
 @app.post("/api/chats/{chat_id}/open")
 async def open_chat(chat_id: str):
+    """Remember this as the chat the designer opens next time."""
     _chat_or_404(chat_id)
     chats.mark_opened(chat_id)
     return {"ok": True}
@@ -588,12 +615,14 @@ async def open_chat(chat_id: str):
 
 @app.patch("/api/chats/{chat_id}")
 async def update_chat(chat_id: str, body: ChatIn):
+    """Rename or pin a chat."""
     _chat_or_404(chat_id)
     return chats.update(chat_id, title=body.title, pinned=body.pinned)
 
 
 @app.delete("/api/chats/{chat_id}")
 async def delete_chat(chat_id: str):
+    """Delete a chat (soft: POST .../restore undoes it for a week)."""
     _chat_or_404(chat_id)
     turn = turns.running_in(chat_id)
     if turn:
@@ -604,6 +633,7 @@ async def delete_chat(chat_id: str):
 
 @app.post("/api/chats/{chat_id}/restore")
 async def restore_chat(chat_id: str):
+    """Undo a chat delete."""
     chat = chats.restore(chat_id)
     if not chat:
         raise _not_found("Chat")
@@ -612,6 +642,10 @@ async def restore_chat(chat_id: str):
 
 @app.post("/api/chats/{chat_id}/messages")
 async def send_message(chat_id: str, body: MessageIn):
+    """Add a user message and start the designer's reply on the server. Returns user_id and reply_id; follow the
+    reply with the stream endpoint or by polling the chat. edit_of=<message id> sends an edited copy of that
+    message as a new branch.
+    """
     chat = _chat_or_404(chat_id)
     text = body.content.strip()
     if not text:
@@ -724,12 +758,16 @@ async def list_images(
     limit: int = 200,
     offset: int = 0,
 ):
+    """Library images, newest first. Filter by kind (generated, upscaled, cleaned), favorite, q (text search),
+    chat_id, job_id or ids (comma separated).
+    """
     id_list = [i for i in ids.split(",") if i] if ids is not None else None
     return library.list_images(kind, favorite, q, chat_id, job_id, id_list, min(limit, 1000), offset)
 
 
 @app.get("/api/images/{image_id}")
 async def get_image(image_id: str):
+    """One image with its parent and children (upscales, cleaned copies, variations)."""
     img = library.get_image(image_id)
     if not img:
         raise _not_found("Image")
@@ -749,6 +787,7 @@ class PrimaryIn(BaseModel):
 
 @app.put("/api/images/{image_id}/primary")
 async def set_primary(image_id: str, body: PrimaryIn):
+    """Mark an upscaled or cleaned child as the version to use (child_id null clears it)."""
     if not library.set_primary(image_id, body.child_id):
         raise _not_found("Image")
     return library.with_primary([library.get_image(image_id)])[0]  # type: ignore[list-item]
@@ -756,11 +795,13 @@ async def set_primary(image_id: str, body: PrimaryIn):
 
 @app.get("/api/spend")
 async def spend(chat_id: str | None = None):
+    """What has been spent: OpenRouter credits, BYOK, by kind, image counts. Optionally for one chat."""
     return library.spend(chat_id=chat_id)
 
 
 @app.patch("/api/images/{image_id}")
 async def patch_image(image_id: str, body: ImagePatch):
+    """Set favorite or note."""
     img = library.update_image(image_id, **body.model_dump(exclude_none=True))
     if not img:
         raise _not_found("Image")
@@ -769,6 +810,7 @@ async def patch_image(image_id: str, body: ImagePatch):
 
 @app.delete("/api/images/{image_id}")
 async def delete_image(image_id: str):
+    """Delete an image, its file and its children."""
     if not library.delete_image(image_id):
         raise _not_found("Image")
     return {"ok": True}
@@ -776,6 +818,7 @@ async def delete_image(image_id: str):
 
 @app.get("/api/tools")
 async def tool_options():
+    """Upscale methods and scales, and background removal models, available on this machine."""
     return {
         "upscale": {"methods": upscaler.METHODS, "scales": upscaler.SCALES,
                     "ai_available": system.local_stack_installed(), "device": system.device_kind()},
@@ -803,6 +846,7 @@ def _derived_meta(img: dict) -> dict:
 
 @app.post("/api/images/{image_id}/upscale")
 async def upscale(image_id: str, body: UpscaleIn):
+    """Upscale an image (methods from GET /api/tools). Returns the new image, kept as a child of the original."""
     img, src = _raster_source(image_id)
     out = await run_in_threadpool(upscaler.upscale_image, src, body.method, body.scale)
     return library.add_image(out, "upscaled", parent_id=image_id, note=f"{body.method} {body.scale}x", **_derived_meta(img))
@@ -819,6 +863,7 @@ class BackgroundIn(BaseModel):
 
 @app.post("/api/images/{image_id}/remove-background")
 async def remove_background(image_id: str, body: BackgroundIn):
+    """Remove the background with an AI model (method ai) or by keying out a color (method color). Returns the new image as a child."""
     img, src = _raster_source(image_id)
     if body.method == "color":
         out = await run_in_threadpool(
@@ -836,6 +881,7 @@ async def remove_background(image_id: str, body: BackgroundIn):
 
 @app.post("/api/uploads")
 async def upload(images: list[UploadFile] = File(...)):
+    """Upload reference images. Returns their paths for the references or images fields."""
     paths.UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     saved = []
     for f in images:
